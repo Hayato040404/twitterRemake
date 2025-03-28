@@ -37,12 +37,14 @@ if (registerForm) {
     const messageDiv = document.getElementById('message');
 
     try {
+      console.log('新規登録リクエスト送信:', { username, password });
       const response = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
       const data = await response.json();
+      console.log('新規登録応答:', data);
 
       if (response.ok) {
         messageDiv.style.color = 'green';
@@ -53,6 +55,7 @@ if (registerForm) {
         messageDiv.textContent = data.error || '登録に失敗しました。';
       }
     } catch (error) {
+      console.error('新規登録エラー:', error);
       messageDiv.style.color = 'red';
       messageDiv.textContent = 'エラーが発生しました。';
     }
@@ -69,23 +72,30 @@ if (loginForm) {
     const messageDiv = document.getElementById('message');
 
     try {
+      console.log('ログインリクエスト送信:', { username, password });
       const response = await fetch('/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
       const data = await response.json();
+      console.log('ログイン応答:', data);
 
       if (response.ok) {
         messageDiv.style.color = 'green';
         messageDiv.textContent = 'ログイン成功！';
         localStorage.setItem('token', data.token);
-        setTimeout(() => window.location.href = '/timeline.html', 2000);
+        console.log('トークン保存:', data.token);
+        setTimeout(() => {
+          console.log('リダイレクト実行');
+          window.location.href = '/timeline.html';
+        }, 2000);
       } else {
         messageDiv.style.color = 'red';
         messageDiv.textContent = data.error || 'ログインに失敗しました。';
       }
     } catch (error) {
+      console.error('ログインエラー:', error);
       messageDiv.style.color = 'red';
       messageDiv.textContent = 'エラーが発生しました。';
     }
@@ -458,7 +468,7 @@ if (window.location.pathname === '/admin.html') {
   if (!isAdmin()) {
     alert('管理者権限が必要です。');
     window.location.href = '/timeline.html';
-    return;
+    // return を削除
   }
 
   // ユーザーBAN
