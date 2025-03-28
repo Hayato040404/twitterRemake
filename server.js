@@ -1,10 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path'); // 追加: ファイルパス操作用
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+
+// 静的ファイル配信（publicディレクトリを公開）
+app.use(express.static(path.join(__dirname, 'public')));
 
 // メモリ上のデータベース
 let users = [];
@@ -92,7 +96,7 @@ app.post('/tweets', authenticateToken, (req, res) => {
     hashtags,
     likes: [],
     retweets: [],
-    impressions: 0, // インプレッション
+    impressions: 0,
     timestamp: Date.now(),
     pinned: false,
     priority: user.isAdmin
@@ -119,9 +123,7 @@ app.get('/timeline/following', authenticateToken, (req, res) => {
     })
     .slice(start, start + limit);
 
-  // インプレッションカウント
   followingTweets.forEach(tweet => tweet.impressions += 1);
-
   res.json({
     tweets: followingTweets,
     meta: { page, limit, total: followingTweets.length }
@@ -143,9 +145,7 @@ app.get('/timeline/recommended', authenticateToken, (req, res) => {
     .sort((a, b) => b.score - b.timestamp / 1000000 - (a.score - a.timestamp / 1000000))
     .slice(start, start + limit);
 
-  // インプレッションカウント
   recommendedTweets.forEach(tweet => tweet.impressions += 1);
-
   res.json({
     tweets: recommendedTweets,
     meta: { page, limit, total: recommendedTweets.length }
@@ -412,7 +412,6 @@ app.get('/analytics', authenticateToken, (req, res) => {
   const analytics = {};
 
   if (user.isAdmin) {
-    // 管理者向け: 全データ
     const totalUsers = users.length;
     const totalPosts = posts.length;
     const totalImpressions = posts.reduce((sum, p) => sum + p.impressions, 0);
@@ -441,7 +440,6 @@ app.get('/analytics', authenticateToken, (req, res) => {
     analytics.userStats = userStats;
     analytics.topHashtags = topHashtags;
   } else {
-    // フリーアカウント向け: 自分のデータのみ
     const userPosts = posts.filter(p => p.userId === user.id);
     const totalImpressions = userPosts.reduce((sum, p) => sum + p.impressions, 0);
     const totalLikes = userPosts.reduce((sum, p) => sum + p.likes.length, 0);
@@ -515,9 +513,7 @@ app.get('/search/tweets', authenticateToken, (req, res) => {
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 50);
 
-  // インプレッションカウント
   results.forEach(tweet => tweet.impressions += 1);
-
   res.json({ results });
 });
 
@@ -532,9 +528,7 @@ app.get('/search/hashtags', authenticateToken, (req, res) => {
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 50);
 
-  // インプレッションカウント
   results.forEach(tweet => tweet.impressions += 1);
-
   res.json({ results });
 });
 
@@ -561,7 +555,7 @@ app.get('/users/:username', authenticateToken, (req, res) => {
   });
 });
 
-// 404ハンドリング
+// 404ハンドリング（APIリクエスト用）
 app.use((req, res) => {
   res.status(404).json({ error: 'Page not found' });
 });
