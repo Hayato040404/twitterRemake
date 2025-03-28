@@ -86,6 +86,7 @@ a:hover {
 
 .tweet .username {
   font-weight: bold;
+  cursor: pointer;
 }
 
 .tweet .timestamp {
@@ -106,6 +107,34 @@ a:hover {
 
 .tweet .actions button:hover {
   color: #1DA1F2;
+}
+
+/* 返信（コメント） */
+.reply {
+  border-top: 1px solid #e1e8ed;
+  padding: 10px 15px 10px 30px;
+  margin-left: 20px;
+}
+
+.reply .username {
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.reply .timestamp {
+  color: #657786;
+  font-size: 0.9em;
+}
+
+.reply .content {
+  margin: 5px 0;
+}
+
+/* 返信フォーム */
+.reply-form {
+  display: none;
+  margin-top: 10px;
+  margin-left: 20px;
 }
 
 /* 通知 */
@@ -136,4 +165,10 @@ a:hover {
 .activity-log .timestamp {
   color: #657786;
   font-size: 0.9em;
+}
+
+/* 未読通知バッジ */
+#unreadBadge {
+  font-size: 0.75em;
+  vertical-align: middle;
 }
