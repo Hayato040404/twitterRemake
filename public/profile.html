@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>プロフィール - Twitter Clone</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- ナビゲーションバー -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container">
+      <a class="navbar-brand" href="/timeline.html">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="#1DA1F2">
+          <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733a4.67 4.67 0 0 0 2.048-2.578 9.3 9.3 0 0 1-2.958 1.13 4.66 4.66 0 0 0-7.938 4.25 13.229 13.229 0 0 1-9.602-4.868 4.66 4.66 0 0 0 1.442 6.22 4.647 4.647 0 0 1-2.11-.583v.06a4.66 4.66 0 0 0 3.737 4.568 4.692 4.692 0 0 1-2.104.08 4.661 4.661 0 0 0 4.352 3.234 9.348 9.348 0 0 1-5.786 1.995 9.5 9.5 0 0 1-1.11-.065 13.175 13.175 0 0 0 7.14 2.093c8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602a9.47 9.47 0 0 0 2.323-2.41l.002-.003z"/>
+        </svg>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/timeline.html">ホーム</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/notifications.html">通知</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/profile.html">プロフィール</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/analytics.html">アナリティクス</a>
+          </li>
+          <li class="nav-item" id="adminNavItem" style="display: none;">
+            <a class="nav-link" href="/admin.html">管理者</a>
+          </li>
+        </ul>
+        <button class="btn btn-outline-danger" onclick="logout()">ログアウト</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col-md-8">
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="d-flex align-items-center mb-3">
+              <img id="profileImage" src="" alt="プロフィール画像" class="rounded-circle me-3" style="width: 80px; height: 80px; display: none;">
+              <div>
+                <h2 id="profileUsername" class="mb-0 d-inline"></h2>
+                <span id="verifiedBadge" class="ms-2" style="display: none;">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#1DA1F2">
+                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.514 1.16-.688 1.942-1.99 1.942-3.486zm-5.62-1.29l-4.25 4.2c-.146.147-.338.22-.53.22s-.384-.073-.53-.22l-2.25-2.2c-.294-.286-.294-.752 0-1.038.294-.286.768-.286 1.062 0l1.72 1.68 3.72-3.68c.294-.286.768-.286 1.062 0 .294.286.294.752 0 1.038z"/>
+                  </svg>
+                </span>
+                <p id="profileBio" class="text-muted"></p>
+              </div>
+            </div>
+            <div class="d-flex mb-3">
+              <span class="me-4"><strong id="followingCount"></strong> フォロー中</span>
+              <span><strong id="followersCount"></strong> フォロワー</span>
+            </div>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editProfileModal">プロフィールを編集</button>
+          </div>
+        </div>
+
+        <h4>最近のツイート</h4>
+        <div id="userTweets"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- プロフィール編集モーダル -->
+  <div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">プロフィールを編集</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editProfileForm">
+            <div class="mb-3">
+              <label for="editBio" class="form-label">自己紹介</label>
+              <textarea class="form-control" id="editBio" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="editThemeColor" class="form-label">テーマカラー</label>
+              <input type="color" class="form-control" id="editThemeColor">
+            </div>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/scripts.js"></script>
+</body>
+</html>
