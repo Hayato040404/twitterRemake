@@ -21,11 +21,45 @@ function isAdmin() {
   return decoded.isAdmin;
 }
 
+// 共通: 現在のユーザー名を取得
+function getCurrentUsername() {
+  const token = getToken();
+  if (!token) return null;
+  const decoded = JSON.parse(atob(token.split('.')[1]));
+  return decoded.username;
+}
+
+// 共通: 未読通知数を更新
+async function updateUnreadBadge() {
+  try {
+    const response = await fetch('/notifications/unread', {
+      headers: getHeaders()
+    });
+    const data = await response.json();
+    if (response.ok) {
+      const unreadBadge = document.getElementById('unreadBadge');
+      if (unreadBadge) {
+        if (data.unreadCount > 0) {
+          unreadBadge.textContent = data.unreadCount;
+          unreadBadge.style.display = 'inline';
+        } else {
+          unreadBadge.style.display = 'none';
+        }
+      }
+    }
+  } catch (error) {
+    console.error('未読通知数の取得に失敗しました:', error);
+  }
+}
+
 // ナビゲーション: 管理者リンクの表示
 if (isAdmin()) {
   const adminNavItem = document.getElementById('adminNavItem');
   if (adminNavItem) adminNavItem.style.display = 'block';
 }
+
+// 未読通知数の初回更新
+updateUnreadBadge();
 
 // 新規登録フォーム
 const registerForm = document.getElementById('registerForm');
@@ -142,17 +176,42 @@ if (tweetForm) {
           const tweetDiv = document.createElement('div');
           tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
           tweetDiv.innerHTML = `
-            <div class="username">${tweet.username}</div>
+            <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
             <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
             <div class="content">${tweet.content}</div>
             <div class="actions">
               <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
               <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
+              <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
               ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
               ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
             </div>
+            <div class="reply-form" id="replyForm-${tweet.id}">
+              <form onsubmit="submitReply(event, ${tweet.id})">
+                <div class="mb-3">
+                  <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">返信</button>
+              </form>
+            </div>
+            <div class="replies" id="replies-${tweet.id}"></div>
           `;
           tweetsDiv.appendChild(tweetDiv);
+
+          // 返信を表示
+          if (tweet.replies && tweet.replies.length > 0) {
+            const repliesDiv = document.getElementById(`replies-${tweet.id}`);
+            tweet.replies.forEach(reply => {
+              const replyDiv = document.createElement('div');
+              replyDiv.className = 'reply';
+              replyDiv.innerHTML = `
+                <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
+                <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                <div class="content">${reply.content}</div>
+              `;
+              repliesDiv.appendChild(replyDiv);
+            });
+          }
         });
       } else {
         alert(data.error || 'タイムラインの読み込みに失敗しました。');
@@ -176,17 +235,42 @@ if (tweetForm) {
           const tweetDiv = document.createElement('div');
           tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
           tweetDiv.innerHTML = `
-            <div class="username">${tweet.username}</div>
+            <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
             <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
             <div class="content">${tweet.content}</div>
             <div class="actions">
               <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
               <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
+              <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
               ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
               ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
             </div>
+            <div class="reply-form" id="replyForm-${tweet.id}">
+              <form onsubmit="submitReply(event, ${tweet.id})">
+                <div class="mb-3">
+                  <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">返信</button>
+              </form>
+            </div>
+            <div class="replies" id="replies-${tweet.id}"></div>
           `;
           tweetsDiv.appendChild(tweetDiv);
+
+          // 返信を表示
+          if (tweet.replies && tweet.replies.length > 0) {
+            const repliesDiv = document.getElementById(`replies-${tweet.id}`);
+            tweet.replies.forEach(reply => {
+              const replyDiv = document.createElement('div');
+              replyDiv.className = 'reply';
+              replyDiv.innerHTML = `
+                <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
+                <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                <div class="content">${reply.content}</div>
+              `;
+              repliesDiv.appendChild(replyDiv);
+            });
+          }
         });
       } else {
         alert(data.error || 'おすすめタイムラインの読み込みに失敗しました。');
@@ -273,6 +357,42 @@ if (tweetForm) {
     }
   };
 
+  // 返信フォームの表示/非表示
+  window.toggleReplyForm = (tweetId) => {
+    const replyForm = document.getElementById(`replyForm-${tweetId}`);
+    replyForm.style.display = replyForm.style.display === 'block' ? 'none' : 'block';
+  };
+
+  // 返信の送信
+  window.submitReply = async (event, tweetId) => {
+    event.preventDefault();
+    const content = document.getElementById(`replyContent-${tweetId}`).value;
+
+    try {
+      const response = await fetch(`/tweets/${tweetId}/reply`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ content })
+      });
+      if (response.ok) {
+        document.getElementById(`replyContent-${tweetId}`).value = '';
+        toggleReplyForm(tweetId);
+        loadFollowingTweets();
+        loadRecommendedTweets();
+      } else {
+        const data = await response.json();
+        alert(data.error || '返信の投稿に失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  };
+
+  // プロフィールページに移動
+  window.goToProfile = (username) => {
+    window.location.href = `/profile.html?username=${username}`;
+  };
+
   // 初回読み込み
   loadFollowingTweets();
   loadRecommendedTweets();
@@ -282,11 +402,10 @@ if (tweetForm) {
 if (window.location.pathname === '/profile.html') {
   async function loadProfile() {
     try {
-      const token = getToken();
-      const decoded = JSON.parse(atob(token.split('.')[1]));
-      const username = decoded.username;
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetUsername = urlParams.get('username') || getCurrentUsername();
 
-      const response = await fetch(`/users/${username}`, {
+      const response = await fetch(`/users/${targetUsername}`, {
         headers: getHeaders()
       });
       const data = await response.json();
@@ -303,23 +422,62 @@ if (window.location.pathname === '/profile.html') {
           document.getElementById('verifiedBadge').style.display = 'inline';
         }
 
+        // フォロー/アンフォローボタンの表示
+        const currentUser = getCurrentUsername();
+        const followButtonContainer = document.getElementById('followButtonContainer');
+        if (currentUser !== targetUsername) {
+          const isFollowing = data.followers.includes(currentUser);
+          followButtonContainer.innerHTML = `
+            <button class="btn ${isFollowing ? 'btn-outline-secondary' : 'btn-primary'}" onclick="toggleFollow('${targetUsername}', ${isFollowing})">
+              ${isFollowing ? 'アンフォロー' : 'フォロー'}
+            </button>
+          `;
+        } else {
+          document.getElementById('editProfileButton').style.display = 'block';
+        }
+
         const tweetsDiv = document.getElementById('userTweets');
         tweetsDiv.innerHTML = '';
         data.recent_tweets.forEach(tweet => {
           const tweetDiv = document.createElement('div');
           tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
           tweetDiv.innerHTML = `
-            <div class="username">${tweet.username}</div>
+            <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
             <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
             <div class="content">${tweet.content}</div>
             <div class="actions">
               <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
               <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
+              <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
               ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
               ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
             </div>
+            <div class="reply-form" id="replyForm-${tweet.id}">
+              <form onsubmit="submitReply(event, ${tweet.id})">
+                <div class="mb-3">
+                  <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">返信</button>
+              </form>
+            </div>
+            <div class="replies" id="replies-${tweet.id}"></div>
           `;
           tweetsDiv.appendChild(tweetDiv);
+
+          // 返信を表示
+          if (tweet.replies && tweet.replies.length > 0) {
+            const repliesDiv = document.getElementById(`replies-${tweet.id}`);
+            tweet.replies.forEach(reply => {
+              const replyDiv = document.createElement('div');
+              replyDiv.className = 'reply';
+              replyDiv.innerHTML = `
+                <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
+                <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                <div class="content">${reply.content}</div>
+              `;
+              repliesDiv.appendChild(replyDiv);
+            });
+          }
         });
       } else {
         alert(data.error || 'プロフィールの読み込みに失敗しました。');
@@ -328,6 +486,26 @@ if (window.location.pathname === '/profile.html') {
       alert('エラーが発生しました。');
     }
   }
+
+  // フォロー/アンフォロー
+  window.toggleFollow = async (username, isFollowing) => {
+    try {
+      const endpoint = isFollowing ? `/unfollow/${username}` : `/follow/${username}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: getHeaders()
+      });
+      const data = await response.json();
+      if (response.ok) {
+        loadProfile();
+        updateUnreadBadge();
+      } else {
+        alert(data.error || 'フォロー/アンフォローに失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  };
 
   // プロフィール編集
   const editProfileForm = document.getElementById('editProfileForm');
@@ -379,6 +557,7 @@ if (window.location.pathname === '/notifications.html') {
           `;
           notificationsDiv.appendChild(notifDiv);
         });
+        updateUnreadBadge();
       } else {
         alert(data.error || '通知の読み込みに失敗しました。');
       }
@@ -468,7 +647,6 @@ if (window.location.pathname === '/admin.html') {
   if (!isAdmin()) {
     alert('管理者権限が必要です。');
     window.location.href = '/timeline.html';
-    // return を削除
   }
 
   // ユーザーBAN
