@@ -10,10 +10,29 @@ app.use(express.static('public'));
 
 // ダミーデータ（本番ではデータベースを使用）
 let users = [
-  { username: 'admin', password: bcrypt.hashSync('admin123', 10), isAdmin: true, following: [], followers: [], bio: '', profileImage: '', verified: true }
+  {
+    username: 'admin',
+    password: bcrypt.hashSync('admin123', 10),
+    isAdmin: true,
+    following: [],
+    followers: [],
+    bio: '',
+    profileImage: '',
+    verified: true
+  },
+  {
+    username: 'Hal',
+    password: bcrypt.hashSync('hayato0429', 10),
+    isAdmin: true,
+    following: [],
+    followers: [],
+    bio: '管理者アカウント',
+    profileImage: '',
+    verified: true
+  }
 ];
 let tweets = [];
-let notifications = []; // ここで1回だけ宣言
+let notifications = [];
 let activityLog = [];
 
 // トークン生成
@@ -40,7 +59,7 @@ function addNotification(username, message) {
     username,
     message,
     timestamp: new Date(),
-    read: false // 未読フラグ
+    read: false
   });
 }
 
@@ -70,13 +89,23 @@ app.post('/register', async (req, res) => {
 // ログイン
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
+  console.log(`ログイン試行: ユーザー名=${username}`);
+
   const user = users.find(u => u.username === username);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user) {
+    console.log(`ユーザー名 ${username} が見つかりません。`);
+    return res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています。' });
+  }
+
+  const passwordMatch = await bcrypt.compare(password, user.password);
+  if (!passwordMatch) {
+    console.log(`パスワードが一致しません: 入力=${password}, ハッシュ=${user.password}`);
     return res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています。' });
   }
 
   const token = generateToken(user);
   activityLog.push({ username, action: 'ログイン', timestamp: new Date() });
+  console.log(`ログイン成功: ユーザー名=${username}, トークン=${token}`);
   res.json({ token });
 });
 
@@ -99,7 +128,6 @@ app.post('/tweets', authenticateToken, (req, res) => {
   tweets.push(tweet);
   activityLog.push({ username: user.username, action: 'ツイート投稿', timestamp: new Date() });
 
-  // フォロワーに通知
   const userData = users.find(u => u.username === user.username);
   userData.followers.forEach(follower => {
     addNotification(follower, `${user.username}が新しいツイートを投稿しました: ${content}`);
@@ -134,7 +162,6 @@ app.post('/tweets/:id/reply', authenticateToken, (req, res) => {
 
   tweet.replies.push(reply);
 
-  // 投稿者に通知
   if (tweet.username !== user.username) {
     addNotification(tweet.username, `${user.username}があなたのツイートに返信しました: ${content}`);
   }
@@ -305,7 +332,6 @@ app.get('/notifications', authenticateToken, (req, res) => {
   const user = req.user;
   const userNotifications = notifications.filter(n => n.username === user.username);
 
-  // 未読通知を既読に更新
   userNotifications.forEach(n => {
     if (!n.read) n.read = true;
   });
@@ -339,7 +365,6 @@ app.post('/follow/:username', authenticateToken, (req, res) => {
     userData.following.push(usernameToFollow);
     targetUser.followers.push(user.username);
 
-    // フォローされたユーザーに通知
     addNotification(usernameToFollow, `${user.username}があなたをフォローしました。`);
     activityLog.push({ username: user.username, action: `${usernameToFollow}をフォロー`, timestamp: new Date() });
   }
@@ -365,7 +390,6 @@ app.post('/unfollow/:username', authenticateToken, (req, res) => {
   userData.following = userData.following.filter(u => u !== usernameToUnfollow);
   targetUser.followers = targetUser.followers.filter(u => u !== user.username);
 
-  // アンフォローされたユーザーに通知
   addNotification(usernameToUnfollow, `${user.username}があなたをアンフォローしました。`);
   activityLog.push({ username: user.username, action: `${usernameToUnfollow}をアンフォロー`, timestamp: new Date() });
 
