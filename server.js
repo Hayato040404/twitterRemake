@@ -14,6 +14,121 @@ app.use(express.static(path.join(__dirname, 'public')));
 let users = [];
 let posts = [];
 let notifications = [];
+// 通知データに未読フラグを追加
+let notifications = [];
+let tweets = [];
+
+// 通知を追加する関数（未読フラグを追加）
+function addNotification(username, message) {
+  notifications.push({
+    username,
+    message,
+    timestamp: new Date(),
+    read: false // 未読フラグ
+  });
+}
+
+// ツイートに返信を追加
+app.post('/tweets/:id/reply', authenticateToken, (req, res) => {
+  const tweetId = parseInt(req.params.id);
+  const { content } = req.body;
+  const user = req.user;
+
+  const tweet = tweets.find(t => t.id === tweetId);
+  if (!tweet) {
+    return res.status(404).json({ error: 'ツイートが見つかりません。' });
+  }
+
+  if (!tweet.replies) {
+    tweet.replies = [];
+  }
+
+  const reply = {
+    id: tweet.replies.length + 1,
+    username: user.username,
+    content,
+    timestamp: new Date(),
+    likes: [],
+    retweets: []
+  };
+
+  tweet.replies.push(reply);
+
+  // 投稿者に通知
+  if (tweet.username !== user.username) {
+    addNotification(tweet.username, `${user.username}があなたのツイートに返信しました: ${content}`);
+  }
+
+  res.status(201).json(reply);
+});
+
+// 未読通知数の取得
+app.get('/notifications/unread', authenticateToken, (req, res) => {
+  const user = req.user;
+  const unreadCount = notifications.filter(n => n.username === user.username && !n.read).length;
+  res.json({ unreadCount });
+});
+
+// 通知の取得（既読に更新）
+app.get('/notifications', authenticateToken, (req, res) => {
+  const user = req.user;
+  const userNotifications = notifications.filter(n => n.username === user.username);
+
+  // 未読通知を既読に更新
+  userNotifications.forEach(n => {
+    if (!n.read) n.read = true;
+  });
+
+  res.json({ notifications: userNotifications });
+});
+
+// フォロー時に通知を送信
+app.post('/follow/:username', authenticateToken, (req, res) => {
+  const usernameToFollow = req.params.username;
+  const user = req.user;
+
+  if (usernameToFollow === user.username) {
+    return res.status(400).json({ error: '自分自身をフォローすることはできません。' });
+  }
+
+  const targetUser = users.find(u => u.username === usernameToFollow);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+  }
+
+  if (!user.following.includes(usernameToFollow)) {
+    user.following.push(usernameToFollow);
+    targetUser.followers.push(user.username);
+
+    // フォローされたユーザーに通知
+    addNotification(usernameToFollow, `${user.username}があなたをフォローしました。`);
+  }
+
+  res.json({ message: `${usernameToFollow}をフォローしました。` });
+});
+
+// アンフォロー時に通知を送信
+app.post('/unfollow/:username', authenticateToken, (req, res) => {
+  const usernameToUnfollow = req.params.username;
+  const user = req.user;
+
+  if (usernameToUnfollow === user.username) {
+    return res.status(400).json({ error: '自分自身をアンフォローすることはできません。' });
+  }
+
+  const targetUser = users.find(u => u.username === usernameToUnfollow);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+  }
+
+  user.following = user.following.filter(u => u !== usernameToUnfollow);
+  targetUser.followers = targetUser.followers.filter(u => u !== user.username);
+
+  // アンフォローされたユーザーに通知
+  addNotification(usernameToUnfollow, `${user.username}があなたをアンフォローしました。`);
+
+  res.json({ message: `${usernameToUnfollow}をアンフォローしました。` });
+});
 
 // ミドルウェア: 認証
 const authenticateToken = (req, res, next) => {
