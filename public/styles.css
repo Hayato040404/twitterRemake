@@ -1,0 +1,139 @@
+body {
+  background-color: #f5f8fa;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.card {
+  border: none;
+  border-radius: 15px;
+}
+
+.btn-primary {
+  background-color: #1DA1F2;
+  border-color: #1DA1F2;
+  border-radius: 25px;
+  font-weight: bold;
+  padding: 10px;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #1991db;
+  border-color: #1991db;
+}
+
+.btn-outline-primary {
+  border-color: #1DA1F2;
+  color: #1DA1F2;
+  border-radius: 25px;
+  font-weight: bold;
+}
+
+.btn-outline-primary:hover {
+  background-color: #1DA1F2;
+  color: white;
+}
+
+.btn-danger {
+  border-radius: 25px;
+  font-weight: bold;
+}
+
+.btn-warning {
+  border-radius: 25px;
+  font-weight: bold;
+}
+
+.btn-info {
+  border-radius: 25px;
+  font-weight: bold;
+}
+
+.form-control {
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid #e1e8ed;
+}
+
+.form-control:focus {
+  border-color: #1DA1F2;
+  box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
+}
+
+a {
+  color: #1DA1F2;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+#message {
+  color: #ff0000;
+}
+
+/* タイムラインのツイート */
+.tweet {
+  border-bottom: 1px solid #e1e8ed;
+  padding: 15px;
+  position: relative;
+}
+
+.tweet.pinned {
+  background-color: #e8f5fd;
+}
+
+.tweet .username {
+  font-weight: bold;
+}
+
+.tweet .timestamp {
+  color: #657786;
+  font-size: 0.9em;
+}
+
+.tweet .content {
+  margin: 5px 0;
+}
+
+.tweet .actions button {
+  background: none;
+  border: none;
+  color: #657786;
+  margin-right: 15px;
+}
+
+.tweet .actions button:hover {
+  color: #1DA1F2;
+}
+
+/* 通知 */
+.notification {
+  border-bottom: 1px solid #e1e8ed;
+  padding: 15px;
+}
+
+.notification .message {
+  margin: 0;
+}
+
+.notification .timestamp {
+  color: #657786;
+  font-size: 0.9em;
+}
+
+/* アクティビティログ */
+.activity-log {
+  border-bottom: 1px solid #e1e8ed;
+  padding: 10px;
+}
+
+.activity-log .action {
+  font-weight: bold;
+}
+
+.activity-log .timestamp {
+  color: #657786;
+  font-size: 0.9em;
+}
