@@ -49,7 +49,7 @@ app.use('/register', limiter);
 let users = [
   {
     username: 'Hal',
-    password: '$2a$10$z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0', // hayato0429
+    password: '$2a$10$oUU/tGv9sDmkvoY1wNGQC.LS2ZmaUCYUb3lPsQbHepOhA04x4c6UC', // hayato0429
     isAdmin: true,
     following: [],
     followers: [],
