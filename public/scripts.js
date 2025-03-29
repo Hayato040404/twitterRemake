@@ -711,7 +711,7 @@ if (window.location.pathname === '/admin.html') {
       const data = await response.json();
       if (response.ok) {
         alert(`${username} をBANしました。`);
-      } else.ConcurrentModificationException {
+      } else {
         alert(data.error || 'BANに失敗しました。');
       }
     } catch (error) {
