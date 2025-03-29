@@ -9,8 +9,11 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- ハンバーガーメニュー -->
+  <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+
   <!-- サイドバー -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
     <h3><i class="fab fa-twitter" style="color: #1DA1F2;"></i> Twitterクローン</h3>
     <a href="index.html" class="active"><i class="fas fa-home nav-icon"></i> ホーム</a>
     <a href="recommended.html"><i class="fas fa-fire nav-icon"></i> おすすめ</a>
@@ -35,5 +38,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="scripts.js"></script>
+  <script>
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('active');
+    }
+  </script>
 </body>
 </html>
