@@ -305,8 +305,9 @@ app.get('/users/:username', authenticateToken, (req, res) => {
     bio: user.bio,
     profileImage: user.profileImage,
     verified: user.verified,
-    following: user.following.length,
-    followers: user.followers.length,
+    followingCount: user.following.length,
+    followersCount: user.followers.length,
+    followers: user.followers,
     recent_tweets: recentTweets
   });
 });
