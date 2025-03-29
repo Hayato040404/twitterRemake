@@ -12,6 +12,19 @@ body {
   padding: 0;
 }
 
+/* ハンバーガーメニュー */
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1100;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #1DA1F2;
+}
+
 /* サイドバー */
 .sidebar {
   position: fixed;
@@ -23,6 +36,7 @@ body {
   border-right: 1px solid #e1e8ed;
   overflow-y: auto;
   z-index: 1000;
+  transition: transform 0.3s ease-in-out;
 }
 
 .sidebar h3 {
@@ -62,6 +76,7 @@ body {
   padding: 20px;
   max-width: 600px;
   margin-right: auto;
+  transition: margin-left 0.3s ease-in-out;
 }
 
 /* ツイートフォーム */
@@ -256,23 +271,19 @@ body {
 
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
+  .hamburger {
+    display: block;
+  }
+
   .sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid #e1e8ed;
-    padding: 10px;
+    transform: translateX(-100%);
+    width: 250px;
+    height: 100vh;
+    border-right: 1px solid #e1e8ed;
   }
 
-  .sidebar h3 {
-    font-size: 20px;
-    margin-bottom: 10px;
-  }
-
-  .sidebar a {
-    font-size: 16px;
-    padding: 8px 0;
+  .sidebar.active {
+    transform: translateX(0);
   }
 
   .main-content {
