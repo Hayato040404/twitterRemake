@@ -1,87 +1,98 @@
+/* 基本設定 */
 body {
   background-color: #f5f8fa;
+  color: #14171a;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
-.card {
-  border: none;
-  border-radius: 15px;
+/* コンテナ */
+.container-fluid {
+  padding: 0;
 }
 
-.btn-primary {
-  background-color: #1DA1F2;
-  border-color: #1DA1F2;
-  border-radius: 25px;
-  font-weight: bold;
-  padding: 10px;
-  transition: background-color 0.2s;
+/* サイドバー */
+.sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 250px;
+  padding: 20px;
+  background-color: #fff;
+  border-right: 1px solid #e1e8ed;
+  overflow-y: auto;
+  z-index: 1000;
 }
 
-.btn-primary:hover {
-  background-color: #1991db;
-  border-color: #1991db;
+.sidebar h3 {
+  margin-bottom: 20px;
+  font-size: 24px;
 }
 
-.btn-outline-primary {
-  border-color: #1DA1F2;
-  color: #1DA1F2;
-  border-radius: 25px;
-  font-weight: bold;
-}
-
-.btn-outline-primary:hover {
-  background-color: #1DA1F2;
-  color: white;
-}
-
-.btn-danger {
-  border-radius: 25px;
-  font-weight: bold;
-}
-
-.btn-warning {
-  border-radius: 25px;
-  font-weight: bold;
-}
-
-.btn-info {
-  border-radius: 25px;
-  font-weight: bold;
-}
-
-.form-control {
-  border-radius: 10px;
-  padding: 10px;
-  border: 1px solid #e1e8ed;
-}
-
-.form-control:focus {
-  border-color: #1DA1F2;
-  box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.1);
-}
-
-a {
-  color: #1DA1F2;
+.sidebar a {
+  color: #14171a;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
+.sidebar a:hover {
+  color: #1DA1F2;
 }
 
-#message {
-  color: #ff0000;
+.sidebar .nav-icon {
+  margin-right: 10px;
+  color: #1DA1F2;
+  width: 24px;
+  text-align: center;
 }
 
-/* タイムラインのツイート */
-.tweet {
-  border-bottom: 1px solid #e1e8ed;
+.sidebar .btn-outline-danger {
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-weight: bold;
+}
+
+/* メインコンテンツ */
+.main-content {
+  margin-left: 250px;
+  padding: 20px;
+  max-width: 600px;
+  margin-right: auto;
+}
+
+/* ツイートフォーム */
+.tweet-form {
+  background-color: #fff;
   padding: 15px;
-  position: relative;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
 }
 
-.tweet.pinned {
-  background-color: #e8f5fd;
+.tweet-form textarea {
+  border: none;
+  resize: none;
+  width: 100%;
+  font-size: 16px;
+}
+
+.tweet-form button {
+  background-color: #1DA1F2;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-weight: bold;
+}
+
+/* ツイート */
+.tweet {
+  background-color: #fff;
+  padding: 15px;
+  border-bottom: 1px solid #e1e8ed;
 }
 
 .tweet .username {
@@ -91,29 +102,46 @@ a:hover {
 
 .tweet .timestamp {
   color: #657786;
-  font-size: 0.9em;
+  font-size: 14px;
 }
 
 .tweet .content {
   margin: 5px 0;
 }
 
+.tweet .actions {
+  display: flex;
+  align-items: center;
+}
+
 .tweet .actions button {
+  color: #657786;
   background: none;
   border: none;
-  color: #657786;
   margin-right: 15px;
+  font-size: 14px;
 }
 
 .tweet .actions button:hover {
   color: #1DA1F2;
 }
 
-/* 返信（コメント） */
+.tweet .text-danger {
+  color: #dc3545;
+}
+
+.tweet .text-danger:hover {
+  color: #c82333;
+}
+
+.pinned {
+  background-color: #e8f5fd;
+}
+
+/* 返信 */
 .reply {
-  border-top: 1px solid #e1e8ed;
   padding: 10px 15px 10px 30px;
-  margin-left: 20px;
+  border-top: 1px solid #e1e8ed;
 }
 
 .reply .username {
@@ -123,52 +151,183 @@ a:hover {
 
 .reply .timestamp {
   color: #657786;
-  font-size: 0.9em;
+  font-size: 14px;
 }
 
 .reply .content {
   margin: 5px 0;
 }
 
-/* 返信フォーム */
-.reply-form {
-  display: none;
-  margin-top: 10px;
-  margin-left: 20px;
-}
-
 /* 通知 */
 .notification {
-  border-bottom: 1px solid #e1e8ed;
   padding: 15px;
+  border-bottom: 1px solid #e1e8ed;
+  background-color: #fff;
+}
+
+.notification.unread {
+  background-color: #e8f5fd;
 }
 
 .notification .message {
-  margin: 0;
+  font-size: 16px;
 }
 
 .notification .timestamp {
   color: #657786;
-  font-size: 0.9em;
+  font-size: 14px;
 }
 
-/* アクティビティログ */
-.activity-log {
-  border-bottom: 1px solid #e1e8ed;
-  padding: 10px;
+/* プロフィールカード */
+.profile-card {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
 }
 
-.activity-log .action {
+.profile-card img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+}
+
+.profile-card .btn-primary {
+  background-color: #1DA1F2;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 20px;
   font-weight: bold;
 }
 
-.activity-log .timestamp {
-  color: #657786;
-  font-size: 0.9em;
+.profile-card .btn-outline-secondary {
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-weight: bold;
 }
 
-/* 未読通知バッジ */
-#unreadBadge {
-  font-size: 0.75em;
-  vertical-align: middle;
+/* フォーム（ログイン、新規登録、管理者ページなど） */
+.form-container {
+  background-color: #fff;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.form-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.form-container .btn-primary {
+  background-color: #1DA1F2;
+  border: none;
+  border-radius: 20px;
+  padding: 10px;
+  font-weight: bold;
+}
+
+.form-container a {
+  color: #1DA1F2;
+  text-decoration: none;
+}
+
+.form-container a:hover {
+  text-decoration: underline;
+}
+
+/* アナリティクス */
+.stat-box {
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.post-stat, .user-stat, .hashtag, .trend, .activity-log {
+  padding: 10px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e1e8ed;
+    padding: 10px;
+  }
+
+  .sidebar h3 {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .sidebar a {
+    font-size: 16px;
+    padding: 8px 0;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+    max-width: 100%;
+  }
+
+  .tweet-form {
+    padding: 10px;
+  }
+
+  .tweet-form textarea {
+    font-size: 14px;
+  }
+
+  .tweet {
+    padding: 10px;
+  }
+
+  .tweet .actions button {
+    font-size: 12px;
+    margin-right: 10px;
+  }
+
+  .profile-card {
+    padding: 15px;
+  }
+
+  .profile-card img {
+    width: 80px;
+    height: 80px;
+  }
+
+  .form-container {
+    padding: 20px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .tweet .actions {
+    flex-wrap: wrap;
+  }
+
+  .tweet .actions button {
+    margin-right: 8px;
+    margin-bottom: 5px;
+  }
+
+  .form-container {
+    padding: 15px;
+  }
+
+  .form-container h2 {
+    font-size: 24px;
+  }
 }
