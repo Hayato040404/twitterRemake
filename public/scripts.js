@@ -62,7 +62,7 @@ if (window.location.pathname === '/login.html') {
         const data = await response.json();
         if (response.ok) {
           setToken(data.token);
-          window.location.href = 'index.html';
+          window.location.href = '/index.html'; // 絶対パスに変更
         } else {
           alert(data.error || 'ログインに失敗しました。');
         }
@@ -96,7 +96,7 @@ if (window.location.pathname === '/register.html') {
         const data = await response.json();
         if (response.ok) {
           alert('登録が完了しました！ログインしてください。');
-          window.location.href = 'login.html';
+          window.location.href = '/login.html';
         } else {
           alert(data.error || '登録に失敗しました。');
         }
@@ -113,7 +113,7 @@ if (window.location.pathname === '/register.html') {
 // ログアウト
 function logout() {
   removeToken();
-  window.location.href = 'login.html';
+  window.location.href = '/login.html';
 }
 
 // 未読通知数の更新
@@ -145,7 +145,7 @@ async function updateUnreadBadge() {
 
 // プロフィールページに遷移
 window.goToProfile = (username) => {
-  window.location.href = `profile.html?username=${username}`;
+  window.location.href = `/profile.html?username=${username}`;
 };
 
 // ツイート投稿
