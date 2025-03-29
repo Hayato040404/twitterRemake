@@ -3,119 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>管理者ダッシュボード - Twitter Clone</title>
+  <title>管理者 - Twitterクローン</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- ナビゲーションバー -->
-  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
-    <div class="container">
-      <a class="navbar-brand" href="/timeline.html">
-        <svg viewBox="0 0 24 24" width="30" height="30" fill="#1DA1F2">
-          <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733a4.67 4.67 0 0 0 2.048-2.578 9.3 9.3 0 0 1-2.958 1.13 4.66 4.66 0 0 0-7.938 4.25 13.229 13.229 0 0 1-9.602-4.868 4.66 4.66 0 0 0 1.442 6.22 4.647 4.647 0 0 1-2.11-.583v.06a4.66 4.66 0 0 0 3.737 4.568 4.692 4.692 0 0 1-2.104.08 4.661 4.661 0 0 0 4.352 3.234 9.348 9.348 0 0 1-5.786 1.995 9.5 9.5 0 0 1-1.11-.065 13.175 13.175 0 0 0 7.14 2.093c8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602a9.47 9.47 0 0 0 2.323-2.41l.002-.003z"/>
-        </svg>
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/timeline.html">ホーム</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/notifications.html">通知</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/profile.html">プロフィール</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/analytics.html">アナリティクス</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link active" href="/admin.html">管理者</a>
-          </li>
-        </ul>
-        <button class="btn btn-outline-danger" onclick="logout()">ログアウト</button>
-      </div>
+  <!-- サイドバー -->
+  <div class="sidebar">
+    <h3><i class="fab fa-twitter" style="color: #1DA1F2;"></i> Twitterクローン</h3>
+    <a href="index.html"><i class="fas fa-home nav-icon"></i> ホーム</a>
+    <a href="recommended.html"><i class="fas fa-fire nav-icon"></i> おすすめ</a>
+    <a href="notifications.html"><i class="fas fa-bell nav-icon"></i> 通知 <span id="unreadBadge" class="badge bg-danger" style="display: none;"></span></a>
+    <a href="analytics.html"><i class="fas fa-chart-line nav-icon"></i> アナリティクス</a>
+    <a href="profile.html"><i class="fas fa-user nav-icon"></i> プロフィール</a>
+    <a href="admin.html" class="active"><i class="fas fa-shield-alt nav-icon"></i> 管理者</a>
+    <button class="btn btn-outline-danger w-100" onclick="logout()">ログアウト</button>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="main-content">
+    <h3>管理者ダッシュボード</h3>
+    <div class="form-container mb-4">
+      <h5>BANユーザー</h5>
+      <form id="banUserForm">
+        <div class="mb-3">
+          <label for="banUsername" class="form-label">ユーザー名</label>
+          <input type="text" class="form-control" id="banUsername" placeholder="ユーザー名" required>
+        </div>
+        <button type="submit" class="btn btn-danger w-100">BAN</button>
+      </form>
     </div>
-  </nav>
-
-  <div class="container mt-4">
-    <h1>管理者ダッシュボード</h1>
-
-    <!-- ユーザーBAN -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>ユーザーBAN</h5>
-        <form id="banUserForm">
-          <div class="mb-3">
-            <label for="banUsername" class="form-label">ユーザー名</label>
-            <input type="text" class="form-control" id="banUsername" placeholder="ユーザー名" required>
-          </div>
-          <button type="submit" class="btn btn-danger">BAN</button>
-        </form>
-      </div>
+    <div class="form-container mb-4">
+      <h5>警告送信</h5>
+      <form id="warnUserForm">
+        <div class="mb-3">
+          <label for="warnUsername" class="form-label">ユーザー名</label>
+          <input type="text" class="form-control" id="warnUsername" placeholder="ユーザー名" required>
+        </div>
+        <div class="mb-3">
+          <label for="warnMessage" class="form-label">メッセージ</label>
+          <textarea class="form-control" id="warnMessage" rows="3" placeholder="警告メッセージ" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-warning w-100">警告送信</button>
+      </form>
     </div>
-
-    <!-- ユーザーへの警告 -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>ユーザーへの警告</h5>
-        <form id="warnUserForm">
-          <div class="mb-3">
-            <label for="warnUsername" class="form-label">ユーザー名</label>
-            <input type="text" class="form-control" id="warnUsername" placeholder="ユーザー名" required>
-          </div>
-          <div class="mb-3">
-            <label for="warnMessage" class="form-label">警告メッセージ</label>
-            <textarea class="form-control" id="warnMessage" rows="3" required></textarea>
-          </div>
-          <button type="submit" class="btn btn-warning">警告を送る</button>
-        </form>
-      </div>
+    <div class="form-container mb-4">
+      <h5>アナウンス</h5>
+      <form id="announceForm">
+        <div class="mb-3">
+          <label for="announceMessage" class="form-label">メッセージ</label>
+          <textarea class="form-control" id="announceMessage" rows="3" placeholder="アナウンスメッセージ" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">アナウンス送信</button>
+      </form>
     </div>
-
-    <!-- 全ユーザーへのアナウンス -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>全ユーザーへのアナウンス</h5>
-        <form id="announceForm">
-          <div class="mb-3">
-            <label for="announceMessage" class="form-label">アナウンスメッセージ</label>
-            <textarea class="form-control" id="announceMessage" rows="3" required></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary">アナウンスを送る</button>
-        </form>
-      </div>
+    <div class="form-container mb-4">
+      <h5>ユーザーアクティビティ</h5>
+      <form id="loadActivityForm">
+        <div class="mb-3">
+          <label for="activityUsername" class="form-label">ユーザー名</label>
+          <input type="text" class="form-control" id="activityUsername" placeholder="ユーザー名" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">アクティビティを読み込む</button>
+      </form>
+      <div id="userActivity" class="mt-3"></div>
     </div>
-
-    <!-- ユーザーアクティビティログ -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>ユーザーアクティビティログ</h5>
-        <form id="activityLogForm">
-          <div class="mb-3">
-            <label for="activityUsername" class="form-label">ユーザー名</label>
-            <input type="text" class="form-control" id="activityUsername" placeholder="ユーザー名" required>
-          </div>
-          <button type="submit" class="btn btn-info">ログを表示</button>
-        </form>
-        <div id="activityLog" class="mt-3"></div>
-      </div>
-    </div>
-
-    <!-- ハッシュタグトレンド -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h5>ハッシュタグトレンド</h5>
-        <div id="hashtagTrends"></div>
-      </div>
+    <div class="stat-box">
+      <h5>トレンド</h5>
+      <div id="trends"></div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/scripts.js"></script>
+  <script src="scripts.js"></script>
 </body>
 </html>
