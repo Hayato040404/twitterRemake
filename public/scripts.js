@@ -44,60 +44,70 @@ function isAdmin() {
 
 // ログインページ
 if (window.location.pathname === '/login.html') {
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
 
-    try {
-      const response = await fetch('/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setToken(data.token);
-        window.location.href = 'index.html';
-      } else {
-        alert(data.error || 'ログインに失敗しました。');
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setToken(data.token);
+          window.location.href = 'index.html';
+        } else {
+          alert(data.error || 'ログインに失敗しました。');
+        }
+      } catch (error) {
+        console.error('ログインエラー:', error);
+        alert('エラーが発生しました。');
       }
-    } catch (error) {
-      console.error('ログインエラー:', error);
-      alert('エラーが発生しました。');
-    }
-  });
+    });
+  } else {
+    console.warn('loginForm が見つかりません。ページ: /login.html');
+  }
 }
 
 // 新規登録ページ
 if (window.location.pathname === '/register.html') {
-  document.getElementById('registerForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+  const registerForm = document.getElementById('registerForm');
+  if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
 
-    try {
-      const response = await fetch('/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        alert('登録が完了しました！ログインしてください。');
-        window.location.href = 'login.html';
-      } else {
-        alert(data.error || '登録に失敗しました。');
+      try {
+        const response = await fetch('/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('登録が完了しました！ログインしてください。');
+          window.location.href = 'login.html';
+        } else {
+          alert(data.error || '登録に失敗しました。');
+        }
+      } catch (error) {
+        console.error('新規登録エラー:', error);
+        alert('エラーが発生しました。');
       }
-    } catch (error) {
-      console.error('新規登録エラー:', error);
-      alert('エラーが発生しました。');
-    }
-  });
+    });
+  } else {
+    console.warn('registerForm が見つかりません。ページ: /register.html');
+  }
 }
 
 // ログアウト
@@ -115,11 +125,15 @@ async function updateUnreadBadge() {
     const data = await response.json();
     if (response.ok) {
       const badge = document.getElementById('unreadBadge');
-      if (data.unreadCount > 0) {
-        badge.textContent = data.unreadCount;
-        badge.style.display = 'inline';
+      if (badge) {
+        if (data.unreadCount > 0) {
+          badge.textContent = data.unreadCount;
+          badge.style.display = 'inline';
+        } else {
+          badge.style.display = 'none';
+        }
       } else {
-        badge.style.display = 'none';
+        console.warn('unreadBadge が見つかりません。');
       }
     } else {
       console.error('未読通知数の取得に失敗しました:', data.error);
@@ -201,13 +215,22 @@ window.retweet = async (tweetId) => {
 // 返信フォームの表示/非表示
 window.toggleReplyForm = (tweetId) => {
   const replyForm = document.getElementById(`replyForm-${tweetId}`);
-  replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+  if (replyForm) {
+    replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+  } else {
+    console.warn(`replyForm-${tweetId} が見つかりません。`);
+  }
 };
 
 // 返信投稿
 window.submitReply = async (event, tweetId) => {
   event.preventDefault();
-  const content = document.getElementById(`replyContent-${tweetId}`).value;
+  const contentElement = document.getElementById(`replyContent-${tweetId}`);
+  if (!contentElement) {
+    console.warn(`replyContent-${tweetId} が見つかりません。`);
+    return;
+  }
+  const content = contentElement.value;
 
   try {
     const response = await fetch(`/tweets/${tweetId}/reply`, {
@@ -217,7 +240,7 @@ window.submitReply = async (event, tweetId) => {
     });
     const data = await response.json();
     if (response.ok) {
-      document.getElementById(`replyContent-${tweetId}`).value = '';
+      contentElement.value = '';
       loadTimeline();
       updateUnreadBadge();
     } else {
@@ -279,47 +302,53 @@ if (window.location.pathname === '/index.html') {
       const data = await response.json();
       if (response.ok) {
         const tweetsDiv = document.getElementById('tweets');
-        tweetsDiv.innerHTML = '';
-        data.tweets.forEach(tweet => {
-          const tweetDiv = document.createElement('div');
-          tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
-          tweetDiv.innerHTML = `
-            <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
-            <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
-            <div class="content">${tweet.content}</div>
-            <div class="actions">
-              <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
-              <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
-              <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
-              ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
-              ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
-            </div>
-            <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
-              <form onsubmit="submitReply(event, ${tweet.id})">
-                <div class="mb-3">
-                  <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm">返信</button>
-              </form>
-            </div>
-            <div class="replies" id="replies-${tweet.id}"></div>
-          `;
-          tweetsDiv.appendChild(tweetDiv);
+        if (tweetsDiv) {
+          tweetsDiv.innerHTML = '';
+          data.tweets.forEach(tweet => {
+            const tweetDiv = document.createElement('div');
+            tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
+            tweetDiv.innerHTML = `
+              <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
+              <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
+              <div class="content">${tweet.content}</div>
+              <div class="actions">
+                <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
+                <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
+                <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
+                ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
+                ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
+              </div>
+              <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
+                <form onsubmit="submitReply(event, ${tweet.id})">
+                  <div class="mb-3">
+                    <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm">返信</button>
+                </form>
+              </div>
+              <div class="replies" id="replies-${tweet.id}"></div>
+            `;
+            tweetsDiv.appendChild(tweetDiv);
 
-          if (tweet.replies && tweet.replies.length > 0) {
-            const repliesDiv = document.getElementById(`replies-${tweet.id}`);
-            tweet.replies.forEach(reply => {
-              const replyDiv = document.createElement('div');
-              replyDiv.className = 'reply';
-              replyDiv.innerHTML = `
-                <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
-                <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
-                <div class="content">${reply.content}</div>
-              `;
-              repliesDiv.appendChild(replyDiv);
-            });
-          }
-        });
+            if (tweet.replies && tweet.replies.length > 0) {
+              const repliesDiv = document.getElementById(`replies-${tweet.id}`);
+              if (repliesDiv) {
+                tweet.replies.forEach(reply => {
+                  const replyDiv = document.createElement('div');
+                  replyDiv.className = 'reply';
+                  replyDiv.innerHTML = `
+                    <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
+                    <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                    <div class="content">${reply.content}</div>
+                  `;
+                  repliesDiv.appendChild(replyDiv);
+                });
+              }
+            }
+          });
+        } else {
+          console.warn('tweets 要素が見つかりません。ページ: /index.html');
+        }
       } else {
         alert(data.error || 'タイムラインの読み込みに失敗しました。');
       }
@@ -329,7 +358,13 @@ if (window.location.pathname === '/index.html') {
     }
   }
 
-  document.getElementById('tweetForm').addEventListener('submit', postTweet);
+  const tweetForm = document.getElementById('tweetForm');
+  if (tweetForm) {
+    tweetForm.addEventListener('submit', postTweet);
+  } else {
+    console.warn('tweetForm が見つかりません。ページ: /index.html');
+  }
+
   loadTimeline();
   updateUnreadBadge();
 }
@@ -344,47 +379,53 @@ if (window.location.pathname === '/recommended.html') {
       const data = await response.json();
       if (response.ok) {
         const tweetsDiv = document.getElementById('recommendedTweets');
-        tweetsDiv.innerHTML = '';
-        data.tweets.forEach(tweet => {
-          const tweetDiv = document.createElement('div');
-          tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
-          tweetDiv.innerHTML = `
-            <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
-            <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
-            <div class="content">${tweet.content}</div>
-            <div class="actions">
-              <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
-              <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
-              <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
-              ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
-              ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
-            </div>
-            <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
-              <form onsubmit="submitReply(event, ${tweet.id})">
-                <div class="mb-3">
-                  <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm">返信</button>
-              </form>
-            </div>
-            <div class="replies" id="replies-${tweet.id}"></div>
-          `;
-          tweetsDiv.appendChild(tweetDiv);
+        if (tweetsDiv) {
+          tweetsDiv.innerHTML = '';
+          data.tweets.forEach(tweet => {
+            const tweetDiv = document.createElement('div');
+            tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
+            tweetDiv.innerHTML = `
+              <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
+              <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
+              <div class="content">${tweet.content}</div>
+              <div class="actions">
+                <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
+                <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
+                <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
+                ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
+                ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
+              </div>
+              <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
+                <form onsubmit="submitReply(event, ${tweet.id})">
+                  <div class="mb-3">
+                    <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm">返信</button>
+                </form>
+              </div>
+              <div class="replies" id="replies-${tweet.id}"></div>
+            `;
+            tweetsDiv.appendChild(tweetDiv);
 
-          if (tweet.replies && tweet.replies.length > 0) {
-            const repliesDiv = document.getElementById(`replies-${tweet.id}`);
-            tweet.replies.forEach(reply => {
-              const replyDiv = document.createElement('div');
-              replyDiv.className = 'reply';
-              replyDiv.innerHTML = `
-                <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
-                <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
-                <div class="content">${reply.content}</div>
-              `;
-              repliesDiv.appendChild(replyDiv);
-            });
-          }
-        });
+            if (tweet.replies && tweet.replies.length > 0) {
+              const repliesDiv = document.getElementById(`replies-${tweet.id}`);
+              if (repliesDiv) {
+                tweet.replies.forEach(reply => {
+                  const replyDiv = document.createElement('div');
+                  replyDiv.className = 'reply';
+                  replyDiv.innerHTML = `
+                    <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
+                    <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                    <div class="content">${reply.content}</div>
+                  `;
+                  repliesDiv.appendChild(replyDiv);
+                });
+              }
+            }
+          });
+        } else {
+          console.warn('recommendedTweets 要素が見つかりません。ページ: /recommended.html');
+        }
       } else {
         alert(data.error || 'おすすめの読み込みに失敗しました。');
       }
@@ -413,21 +454,29 @@ if (window.location.pathname === '/profile.html') {
       console.log('プロフィールデータ:', data);
 
       if (response.ok) {
-        document.getElementById('profileUsername').textContent = data.username;
-        document.getElementById('profileBio').textContent = data.bio || '自己紹介がありません。';
-        document.getElementById('followingCount').textContent = data.followingCount;
-        document.getElementById('followersCount').textContent = data.followersCount;
-        if (data.profileImage) {
-          document.getElementById('profileImage').src = data.profileImage;
-          document.getElementById('profileImage').style.display = 'block';
+        const profileUsername = document.getElementById('profileUsername');
+        const profileBio = document.getElementById('profileBio');
+        const followingCount = document.getElementById('followingCount');
+        const followersCount = document.getElementById('followersCount');
+        const profileImage = document.getElementById('profileImage');
+        const verifiedBadge = document.getElementById('verifiedBadge');
+
+        if (profileUsername) profileUsername.textContent = data.username;
+        if (profileBio) profileBio.textContent = data.bio || '自己紹介がありません。';
+        if (followingCount) followingCount.textContent = data.followingCount;
+        if (followersCount) followersCount.textContent = data.followersCount;
+        if (profileImage && data.profileImage) {
+          profileImage.src = data.profileImage;
+          profileImage.style.display = 'block';
         }
-        if (data.verified) {
-          document.getElementById('verifiedBadge').style.display = 'inline';
+        if (verifiedBadge && data.verified) {
+          verifiedBadge.style.display = 'inline';
         }
 
         const currentUser = getCurrentUsername();
         const followButtonContainer = document.getElementById('followButtonContainer');
-        if (currentUser !== targetUsername) {
+        const editProfileButton = document.getElementById('editProfileButton');
+        if (followButtonContainer && currentUser !== targetUsername) {
           const isFollowing = Array.isArray(data.followers) && data.followers.includes(currentUser);
           console.log(`フォロー状態: ${currentUser}が${targetUsername}をフォロー中=${isFollowing}`);
           followButtonContainer.innerHTML = `
@@ -435,52 +484,58 @@ if (window.location.pathname === '/profile.html') {
               ${isFollowing ? 'アンフォロー' : 'フォロー'}
             </button>
           `;
-        } else {
-          document.getElementById('editProfileButton').style.display = 'block';
+        } else if (editProfileButton) {
+          editProfileButton.style.display = 'block';
         }
 
         const tweetsDiv = document.getElementById('userTweets');
-        tweetsDiv.innerHTML = '';
-        data.recent_tweets.forEach(tweet => {
-          const tweetDiv = document.createElement('div');
-          tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
-          tweetDiv.innerHTML = `
-            <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
-            <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
-            <div class="content">${tweet.content}</div>
-            <div class="actions">
-              <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
-              <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
-              <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
-              ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
-              ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
-            </div>
-            <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
-              <form onsubmit="submitReply(event, ${tweet.id})">
-                <div class="mb-3">
-                  <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm">返信</button>
-              </form>
-            </div>
-            <div class="replies" id="replies-${tweet.id}"></div>
-          `;
-          tweetsDiv.appendChild(tweetDiv);
+        if (tweetsDiv) {
+          tweetsDiv.innerHTML = '';
+          data.recent_tweets.forEach(tweet => {
+            const tweetDiv = document.createElement('div');
+            tweetDiv.className = `tweet ${tweet.pinned ? 'pinned' : ''}`;
+            tweetDiv.innerHTML = `
+              <div class="username" onclick="goToProfile('${tweet.username}')">${tweet.username}</div>
+              <div class="timestamp">${new Date(tweet.timestamp).toLocaleString()}</div>
+              <div class="content">${tweet.content}</div>
+              <div class="actions">
+                <button onclick="likeTweet(${tweet.id}, this)">いいね (${tweet.likes.length})</button>
+                <button onclick="retweet(${tweet.id})">リツイート (${tweet.retweets.length})</button>
+                <button onclick="toggleReplyForm(${tweet.id})">返信 (${tweet.replies ? tweet.replies.length : 0})</button>
+                ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
+                ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
+              </div>
+              <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
+                <form onsubmit="submitReply(event, ${tweet.id})">
+                  <div class="mb-3">
+                    <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm">返信</button>
+                </form>
+              </div>
+              <div class="replies" id="replies-${tweet.id}"></div>
+            `;
+            tweetsDiv.appendChild(tweetDiv);
 
-          if (tweet.replies && tweet.replies.length > 0) {
-            const repliesDiv = document.getElementById(`replies-${tweet.id}`);
-            tweet.replies.forEach(reply => {
-              const replyDiv = document.createElement('div');
-              replyDiv.className = 'reply';
-              replyDiv.innerHTML = `
-                <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
-                <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
-                <div class="content">${reply.content}</div>
-              `;
-              repliesDiv.appendChild(replyDiv);
-            });
-          }
-        });
+            if (tweet.replies && tweet.replies.length > 0) {
+              const repliesDiv = document.getElementById(`replies-${tweet.id}`);
+              if (repliesDiv) {
+                tweet.replies.forEach(reply => {
+                  const replyDiv = document.createElement('div');
+                  replyDiv.className = 'reply';
+                  replyDiv.innerHTML = `
+                    <div class="username" onclick="goToProfile('${reply.username}')">${reply.username}</div>
+                    <div class="timestamp">${new Date(reply.timestamp).toLocaleString()}</div>
+                    <div class="content">${reply.content}</div>
+                  `;
+                  repliesDiv.appendChild(replyDiv);
+                });
+              }
+            }
+          });
+        } else {
+          console.warn('userTweets 要素が見つかりません。ページ: /profile.html');
+        }
       } else {
         console.error('プロフィール取得エラー:', data.error);
         alert(data.error || 'プロフィールの読み込みに失敗しました。');
@@ -511,12 +566,19 @@ if (window.location.pathname === '/profile.html') {
     }
   };
 
+  // プロフィール編集フォームのイベントリスナー
   const editProfileForm = document.getElementById('editProfileForm');
   if (editProfileForm) {
     editProfileForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const bio = document.getElementById('editBio').value;
-      const themeColor = document.getElementById('editThemeColor').value;
+      const editBio = document.getElementById('editBio');
+      const editThemeColor = document.getElementById('editThemeColor');
+      if (!editBio || !editThemeColor) {
+        console.warn('editBio または editThemeColor が見つかりません。');
+        return;
+      }
+      const bio = editBio.value;
+      const themeColor = editThemeColor.value;
 
       try {
         const response = await fetch('/profile/update', {
@@ -527,7 +589,10 @@ if (window.location.pathname === '/profile.html') {
         const data = await response.json();
         if (response.ok) {
           loadProfile();
-          bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
+          const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+          if (modal) {
+            modal.hide();
+          }
         } else {
           alert(data.error || 'プロフィールの更新に失敗しました。');
         }
@@ -536,6 +601,8 @@ if (window.location.pathname === '/profile.html') {
         alert('エラーが発生しました。');
       }
     });
+  } else {
+    console.warn('editProfileForm が見つかりません。ページ: /profile.html');
   }
 
   loadProfile();
@@ -552,16 +619,20 @@ if (window.location.pathname === '/notifications.html') {
       const data = await response.json();
       if (response.ok) {
         const notificationsDiv = document.getElementById('notifications');
-        notificationsDiv.innerHTML = '';
-        data.notifications.forEach(notification => {
-          const notificationDiv = document.createElement('div');
-          notificationDiv.className = `notification ${notification.read ? 'read' : 'unread'}`;
-          notificationDiv.innerHTML = `
-            <div class="message">${notification.message}</div>
-            <div class="timestamp">${new Date(notification.timestamp).toLocaleString()}</div>
-          `;
-          notificationsDiv.appendChild(notificationDiv);
-        });
+        if (notificationsDiv) {
+          notificationsDiv.innerHTML = '';
+          data.notifications.forEach(notification => {
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = `notification ${notification.read ? 'read' : 'unread'}`;
+            notificationDiv.innerHTML = `
+              <div class="message">${notification.message}</div>
+              <div class="timestamp">${new Date(notification.timestamp).toLocaleString()}</div>
+            `;
+            notificationsDiv.appendChild(notificationDiv);
+          });
+        } else {
+          console.warn('notifications 要素が見つかりません。ページ: /notifications.html');
+        }
       } else {
         alert(data.error || '通知の読み込みに失敗しました。');
       }
@@ -584,53 +655,63 @@ if (window.location.pathname === '/analytics.html') {
       });
       const data = await response.json();
       if (response.ok) {
-        document.getElementById('totalImpressions').textContent = data.overview.totalImpressions;
-        document.getElementById('totalLikes').textContent = data.overview.totalLikes;
-        document.getElementById('totalRetweets').textContent = data.overview.totalRetweets;
+        const totalImpressions = document.getElementById('totalImpressions');
+        const totalLikes = document.getElementById('totalLikes');
+        const totalRetweets = document.getElementById('totalRetweets');
+        if (totalImpressions) totalImpressions.textContent = data.overview.totalImpressions;
+        if (totalLikes) totalLikes.textContent = data.overview.totalLikes;
+        if (totalRetweets) totalRetweets.textContent = data.overview.totalRetweets;
 
         const postStatsDiv = document.getElementById('postStats');
-        postStatsDiv.innerHTML = '';
-        data.postStats.forEach(stat => {
-          const statDiv = document.createElement('div');
-          statDiv.className = 'post-stat';
-          statDiv.innerHTML = `
-            <div class="content">${stat.content}</div>
-            <div>インプレッション: ${stat.impressions}</div>
-            <div>いいね: ${stat.likes}</div>
-            <div>リツイート: ${stat.retweets}</div>
-          `;
-          postStatsDiv.appendChild(statDiv);
-        });
-
-        if (isAdmin()) {
-          document.getElementById('adminStats').style.display = 'block';
-
-          const userStatsDiv = document.getElementById('userStats');
-          userStatsDiv.innerHTML = '';
-          data.userStats.forEach(stat => {
+        if (postStatsDiv) {
+          postStatsDiv.innerHTML = '';
+          data.postStats.forEach(stat => {
             const statDiv = document.createElement('div');
-            statDiv.className = 'user-stat';
+            statDiv.className = 'post-stat';
             statDiv.innerHTML = `
-              <div>ユーザー名: ${stat.username}</div>
-              <div>投稿数: ${stat.posts}</div>
+              <div class="content">${stat.content}</div>
               <div>インプレッション: ${stat.impressions}</div>
               <div>いいね: ${stat.likes}</div>
               <div>リツイート: ${stat.retweets}</div>
-              <div>フォロワー: ${stat.followers}</div>
             `;
-            userStatsDiv.appendChild(statDiv);
+            postStatsDiv.appendChild(statDiv);
           });
+        }
+
+        if (isAdmin()) {
+          const adminStats = document.getElementById('adminStats');
+          if (adminStats) adminStats.style.display = 'block';
+
+          const userStatsDiv = document.getElementById('userStats');
+          if (userStatsDiv) {
+            userStatsDiv.innerHTML = '';
+            data.userStats.forEach(stat => {
+              const statDiv = document.createElement('div');
+              statDiv.className = 'user-stat';
+              statDiv.innerHTML = `
+                <div>ユーザー名: ${stat.username}</div>
+                <div>投稿数: ${stat.posts}</div>
+                <div>インプレッション: ${stat.impressions}</div>
+                <div>いいね: ${stat.likes}</div>
+                <div>リツイート: ${stat.retweets}</div>
+                <div>フォロワー: ${stat.followers}</div>
+              `;
+              userStatsDiv.appendChild(statDiv);
+            });
+          }
 
           const topHashtagsDiv = document.getElementById('topHashtags');
-          topHashtagsDiv.innerHTML = '';
-          data.topHashtags.forEach(hashtag => {
-            const hashtagDiv = document.createElement('div');
-            hashtagDiv.className = 'hashtag';
-            hashtagDiv.innerHTML = `
-              <div>#${hashtag.tag}: ${hashtag.count} 回</div>
-            `;
-            topHashtagsDiv.appendChild(hashtagDiv);
-          });
+          if (topHashtagsDiv) {
+            topHashtagsDiv.innerHTML = '';
+            data.topHashtags.forEach(hashtag => {
+              const hashtagDiv = document.createElement('div');
+              hashtagDiv.className = 'hashtag';
+              hashtagDiv.innerHTML = `
+                <div>#${hashtag.tag}: ${hashtag.count} 回</div>
+              `;
+              topHashtagsDiv.appendChild(hashtagDiv);
+            });
+          }
         }
       } else {
         alert(data.error || 'アナリティクスの読み込みに失敗しました。');
@@ -655,15 +736,19 @@ if (window.location.pathname === '/admin.html') {
       const data = await response.json();
       if (response.ok) {
         const activityDiv = document.getElementById('userActivity');
-        activityDiv.innerHTML = '';
-        data.activityLog.forEach(log => {
-          const logDiv = document.createElement('div');
-          logDiv.className = 'activity-log';
-          logDiv.innerHTML = `
-            <div>${log.username} が ${log.action} (${new Date(log.timestamp).toLocaleString()})</div>
-          `;
-          activityDiv.appendChild(logDiv);
-        });
+        if (activityDiv) {
+          activityDiv.innerHTML = '';
+          data.activityLog.forEach(log => {
+            const logDiv = document.createElement('div');
+            logDiv.className = 'activity-log';
+            logDiv.innerHTML = `
+              <div>${log.username} が ${log.action} (${new Date(log.timestamp).toLocaleString()})</div>
+            `;
+            activityDiv.appendChild(logDiv);
+          });
+        } else {
+          console.warn('userActivity 要素が見つかりません。ページ: /admin.html');
+        }
       } else {
         alert(data.error || 'アクティビティの読み込みに失敗しました。');
       }
@@ -681,15 +766,19 @@ if (window.location.pathname === '/admin.html') {
       const data = await response.json();
       if (response.ok) {
         const trendsDiv = document.getElementById('trends');
-        trendsDiv.innerHTML = '';
-        data.trends.forEach(trend => {
-          const trendDiv = document.createElement('div');
-          trendDiv.className = 'trend';
-          trendDiv.innerHTML = `
-            <div>#${trend.tag}: ${trend.count} 回</div>
-          `;
-          trendsDiv.appendChild(trendDiv);
-        });
+        if (trendsDiv) {
+          trendsDiv.innerHTML = '';
+          data.trends.forEach(trend => {
+            const trendDiv = document.createElement('div');
+            trendDiv.className = 'trend';
+            trendDiv.innerHTML = `
+              <div>#${trend.tag}: ${trend.count} 回</div>
+            `;
+            trendsDiv.appendChild(trendDiv);
+          });
+        } else {
+          console.warn('trends 要素が見つかりません。ページ: /admin.html');
+        }
       } else {
         alert(data.error || 'トレンドの読み込みに失敗しました。');
       }
@@ -699,77 +788,110 @@ if (window.location.pathname === '/admin.html') {
     }
   }
 
-  document.getElementById('banUserForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('banUsername').value;
-
-    try {
-      const response = await fetch(`/ban/${username}`, {
-        method: 'POST',
-        headers: getHeaders()
-      });
-      const data = await response.json();
-      if (response.ok) {
-        alert(`${username} をBANしました。`);
-      } else {
-        alert(data.error || 'BANに失敗しました。');
+  const banUserForm = document.getElementById('banUserForm');
+  if (banUserForm) {
+    banUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const banUsername = document.getElementById('banUsername');
+      if (!banUsername) {
+        console.warn('banUsername が見つかりません。');
+        return;
       }
-    } catch (error) {
-      console.error('BANエラー:', error);
-      alert('エラーが発生しました。');
-    }
-  });
+      const username = banUsername.value;
 
-  document.getElementById('warnUserForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('warnUsername').value;
-    const message = document.getElementById('warnMessage').value;
-
-    try {
-      const response = await fetch(`/warn/${username}`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ message })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        alert(`${username} に警告を送信しました。`);
-      } else {
-        alert(data.error || '警告の送信に失敗しました。');
+      try {
+        const response = await fetch(`/ban/${username}`, {
+          method: 'POST',
+          headers: getHeaders()
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert(`${username} をBANしました。`);
+        } else {
+          alert(data.error || 'BANに失敗しました。');
+        }
+      } catch (error) {
+        console.error('BANエラー:', error);
+        alert('エラーが発生しました。');
       }
-    } catch (error) {
-      console.error('警告送信エラー:', error);
-      alert('エラーが発生しました。');
-    }
-  });
+    });
+  }
 
-  document.getElementById('announceForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const message = document.getElementById('announceMessage').value;
-
-    try {
-      const response = await fetch('/announce', {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ message })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        alert('アナウンスを送信しました。');
-      } else {
-        alert(data.error || 'アナウンスの送信に失敗しました。');
+  const warnUserForm = document.getElementById('warnUserForm');
+  if (warnUserForm) {
+    warnUserForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const warnUsername = document.getElementById('warnUsername');
+      const warnMessage = document.getElementById('warnMessage');
+      if (!warnUsername || !warnMessage) {
+        console.warn('warnUsername または warnMessage が見つかりません。');
+        return;
       }
-    } catch (error) {
-      console.error('アナウンス送信エラー:', error);
-      alert('エラーが発生しました。');
-    }
-  });
+      const username = warnUsername.value;
+      const message = warnMessage.value;
 
-  document.getElementById('loadActivityForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const username = document.getElementById('activityUsername').value;
-    loadUserActivity(username);
-  });
+      try {
+        const response = await fetch(`/warn/${username}`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert(`${username} に警告を送信しました。`);
+        } else {
+          alert(data.error || '警告の送信に失敗しました。');
+        }
+      } catch (error) {
+        console.error('警告送信エラー:', error);
+        alert('エラーが発生しました。');
+      }
+    });
+  }
+
+  const announceForm = document.getElementById('announceForm');
+  if (announceForm) {
+    announceForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const announceMessage = document.getElementById('announceMessage');
+      if (!announceMessage) {
+        console.warn('announceMessage が見つかりません。');
+        return;
+      }
+      const message = announceMessage.value;
+
+      try {
+        const response = await fetch('/announce', {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('アナウンスを送信しました。');
+        } else {
+          alert(data.error || 'アナウンスの送信に失敗しました。');
+        }
+      } catch (error) {
+        console.error('アナウンス送信エラー:', error);
+        alert('エラーが発生しました。');
+      }
+    });
+  }
+
+  const loadActivityForm = document.getElementById('loadActivityForm');
+  if (loadActivityForm) {
+    loadActivityForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const activityUsername = document.getElementById('activityUsername');
+      if (!activityUsername) {
+        console.warn('activityUsername が見つかりません。');
+        return;
+      }
+      const username = activityUsername.value;
+      loadUserActivity(username);
+    });
+  }
 
   loadTrends();
   updateUnreadBadge();
