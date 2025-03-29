@@ -1,35 +1,110 @@
-// 共通: トークンを取得
-const getToken = () => localStorage.getItem('token');
+// トークン管理
+function getToken() {
+  return localStorage.getItem('token');
+}
 
-// 共通: ログアウト
-function logout() {
+function setToken(token) {
+  localStorage.setItem('token', token);
+}
+
+function removeToken() {
   localStorage.removeItem('token');
-  window.location.href = '/';
 }
 
-// 共通: APIリクエスト用のヘッダー
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${getToken()}`
-});
-
-// 共通: 管理者かどうかを確認
-function isAdmin() {
-  const token = getToken();
-  if (!token) return false;
-  const decoded = JSON.parse(atob(token.split('.')[1]));
-  return decoded.isAdmin;
+function getHeaders() {
+  return {
+    'Authorization': `Bearer ${getToken()}`,
+    'Content-Type': 'application/json'
+  };
 }
 
-// 共通: 現在のユーザー名を取得
 function getCurrentUsername() {
   const token = getToken();
   if (!token) return null;
-  const decoded = JSON.parse(atob(token.split('.')[1]));
-  return decoded.username;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.username;
+  } catch (e) {
+    console.error('トークンのデコードに失敗しました:', e);
+    return null;
+  }
 }
 
-// 共通: 未読通知数を更新
+function isAdmin() {
+  const token = getToken();
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.isAdmin || false;
+  } catch (e) {
+    console.error('トークンのデコードに失敗しました:', e);
+    return false;
+  }
+}
+
+// ログインページ
+if (window.location.pathname === '/login.html') {
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    try {
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setToken(data.token);
+        window.location.href = 'index.html';
+      } else {
+        alert(data.error || 'ログインに失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  });
+}
+
+// 新規登録ページ
+if (window.location.pathname === '/register.html') {
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    try {
+      const response = await fetch('/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert('登録が完了しました！ログインしてください。');
+        window.location.href = 'login.html';
+      } else {
+        alert(data.error || '登録に失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  });
+}
+
+// ログアウト
+function logout() {
+  removeToken();
+  window.location.href = 'login.html';
+}
+
+// 未読通知数の更新
 async function updateUnreadBadge() {
   try {
     const response = await fetch('/notifications/unread', {
@@ -37,14 +112,12 @@ async function updateUnreadBadge() {
     });
     const data = await response.json();
     if (response.ok) {
-      const unreadBadge = document.getElementById('unreadBadge');
-      if (unreadBadge) {
-        if (data.unreadCount > 0) {
-          unreadBadge.textContent = data.unreadCount;
-          unreadBadge.style.display = 'inline';
-        } else {
-          unreadBadge.style.display = 'none';
-        }
+      const badge = document.getElementById('unreadBadge');
+      if (data.unreadCount > 0) {
+        badge.textContent = data.unreadCount;
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
       }
     }
   } catch (error) {
@@ -52,125 +125,150 @@ async function updateUnreadBadge() {
   }
 }
 
-// ナビゲーション: 管理者リンクの表示
-if (isAdmin()) {
-  const adminNavItem = document.getElementById('adminNavItem');
-  if (adminNavItem) adminNavItem.style.display = 'block';
+// プロフィールページに遷移
+window.goToProfile = (username) => {
+  window.location.href = `profile.html?username=${username}`;
+};
+
+// ツイート投稿
+async function postTweet(event) {
+  event.preventDefault();
+  const content = document.getElementById('tweetContent').value;
+
+  try {
+    const response = await fetch('/tweets', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ content })
+    });
+    const data = await response.json();
+    if (response.ok) {
+      document.getElementById('tweetContent').value = '';
+      loadTimeline();
+    } else {
+      alert(data.error || 'ツイートの投稿に失敗しました。');
+    }
+  } catch (error) {
+    alert('エラーが発生しました。');
+  }
 }
 
-// 未読通知数の初回更新
-updateUnreadBadge();
+// いいね
+window.likeTweet = async (tweetId, button) => {
+  try {
+    const response = await fetch(`/tweets/${tweetId}/like`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    const data = await response.json();
+    if (response.ok) {
+      button.textContent = `いいね (${data.likes_count})`;
+      updateUnreadBadge();
+    } else {
+      alert(data.error || 'いいねに失敗しました。');
+    }
+  } catch (error) {
+    alert('エラーが発生しました。');
+  }
+};
 
-// 新規登録フォーム
-const registerForm = document.getElementById('registerForm');
-if (registerForm) {
-  registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const messageDiv = document.getElementById('message');
+// リツイート
+window.retweet = async (tweetId) => {
+  try {
+    const response = await fetch(`/tweets/${tweetId}/retweet`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    const data = await response.json();
+    if (response.ok) {
+      loadTimeline();
+      updateUnreadBadge();
+    } else {
+      alert(data.error || 'リツイートに失敗しました。');
+    }
+  } catch (error) {
+    alert('エラーが発生しました。');
+  }
+};
 
+// 返信フォームの表示/非表示
+window.toggleReplyForm = (tweetId) => {
+  const replyForm = document.getElementById(`replyForm-${tweetId}`);
+  replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+};
+
+// 返信投稿
+window.submitReply = async (event, tweetId) => {
+  event.preventDefault();
+  const content = document.getElementById(`replyContent-${tweetId}`).value;
+
+  try {
+    const response = await fetch(`/tweets/${tweetId}/reply`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ content })
+    });
+    const data = await response.json();
+    if (response.ok) {
+      document.getElementById(`replyContent-${tweetId}`).value = '';
+      loadTimeline();
+      updateUnreadBadge();
+    } else {
+      alert(data.error || '返信の投稿に失敗しました。');
+    }
+  } catch (error) {
+    alert('エラーが発生しました。');
+  }
+};
+
+// ツイート削除（管理者専用）
+window.deleteTweet = async (tweetId) => {
+  if (confirm('このツイートを削除しますか？')) {
     try {
-      console.log('新規登録リクエスト送信:', { username, password });
-      const response = await fetch('/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+      const response = await fetch(`/tweets/${tweetId}`, {
+        method: 'DELETE',
+        headers: getHeaders()
       });
       const data = await response.json();
-      console.log('新規登録応答:', data);
-
       if (response.ok) {
-        messageDiv.style.color = 'green';
-        messageDiv.textContent = '登録成功！ログインしてください。';
-        setTimeout(() => window.location.href = '/login.html', 2000);
+        loadTimeline();
       } else {
-        messageDiv.style.color = 'red';
-        messageDiv.textContent = data.error || '登録に失敗しました。';
-      }
-    } catch (error) {
-      console.error('新規登録エラー:', error);
-      messageDiv.style.color = 'red';
-      messageDiv.textContent = 'エラーが発生しました。';
-    }
-  });
-}
-
-// ログインフォーム
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const messageDiv = document.getElementById('message');
-
-    try {
-      console.log('ログインリクエスト送信:', { username, password });
-      const response = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await response.json();
-      console.log('ログイン応答:', data);
-
-      if (response.ok) {
-        messageDiv.style.color = 'green';
-        messageDiv.textContent = 'ログイン成功！';
-        localStorage.setItem('token', data.token);
-        console.log('トークン保存:', data.token);
-        setTimeout(() => {
-          console.log('リダイレクト実行');
-          window.location.href = '/timeline.html';
-        }, 2000);
-      } else {
-        messageDiv.style.color = 'red';
-        messageDiv.textContent = data.error || 'ログインに失敗しました。';
-      }
-    } catch (error) {
-      console.error('ログインエラー:', error);
-      messageDiv.style.color = 'red';
-      messageDiv.textContent = 'エラーが発生しました。';
-    }
-  });
-}
-
-// タイムライン: 投稿フォーム
-const tweetForm = document.getElementById('tweetForm');
-if (tweetForm) {
-  tweetForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const content = document.getElementById('tweetContent').value;
-
-    try {
-      const response = await fetch('/tweets', {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ content })
-      });
-      if (response.ok) {
-        document.getElementById('tweetContent').value = '';
-        loadFollowingTweets();
-        loadRecommendedTweets();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'ツイートの投稿に失敗しました。');
+        alert(data.error || 'ツイートの削除に失敗しました。');
       }
     } catch (error) {
       alert('エラーが発生しました。');
     }
-  });
+  }
+};
 
-  // フォロー中のタイムラインを読み込み
-  async function loadFollowingTweets() {
+// ツイートピン留め（管理者専用）
+window.pinTweet = async (tweetId) => {
+  try {
+    const response = await fetch(`/tweets/${tweetId}/pin`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    const data = await response.json();
+    if (response.ok) {
+      loadTimeline();
+    } else {
+      alert(data.error || 'ピン留めに失敗しました。');
+    }
+  } catch (error) {
+    alert('エラーが発生しました。');
+  }
+};
+
+// タイムラインページ
+if (window.location.pathname === '/index.html') {
+  async function loadTimeline() {
     try {
       const response = await fetch('/timeline/following', {
         headers: getHeaders()
       });
       const data = await response.json();
       if (response.ok) {
-        const tweetsDiv = document.getElementById('followingTweets');
+        const tweetsDiv = document.getElementById('tweets');
         tweetsDiv.innerHTML = '';
         data.tweets.forEach(tweet => {
           const tweetDiv = document.createElement('div');
@@ -186,7 +284,7 @@ if (tweetForm) {
               ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
               ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
             </div>
-            <div class="reply-form" id="replyForm-${tweet.id}">
+            <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
               <form onsubmit="submitReply(event, ${tweet.id})">
                 <div class="mb-3">
                   <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
@@ -198,7 +296,6 @@ if (tweetForm) {
           `;
           tweetsDiv.appendChild(tweetDiv);
 
-          // 返信を表示
           if (tweet.replies && tweet.replies.length > 0) {
             const repliesDiv = document.getElementById(`replies-${tweet.id}`);
             tweet.replies.forEach(reply => {
@@ -217,12 +314,19 @@ if (tweetForm) {
         alert(data.error || 'タイムラインの読み込みに失敗しました。');
       }
     } catch (error) {
+      console.error('タイムライン読み込みエラー:', error);
       alert('エラーが発生しました。');
     }
   }
 
-  // おすすめタイムラインを読み込み
-  async function loadRecommendedTweets() {
+  document.getElementById('tweetForm').addEventListener('submit', postTweet);
+  loadTimeline();
+  updateUnreadBadge();
+}
+
+// おすすめページ
+if (window.location.pathname === '/recommended.html') {
+  async function loadRecommended() {
     try {
       const response = await fetch('/timeline/recommended', {
         headers: getHeaders()
@@ -245,7 +349,7 @@ if (tweetForm) {
               ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
               ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
             </div>
-            <div class="reply-form" id="replyForm-${tweet.id}">
+            <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
               <form onsubmit="submitReply(event, ${tweet.id})">
                 <div class="mb-3">
                   <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
@@ -257,7 +361,6 @@ if (tweetForm) {
           `;
           tweetsDiv.appendChild(tweetDiv);
 
-          // 返信を表示
           if (tweet.replies && tweet.replies.length > 0) {
             const repliesDiv = document.getElementById(`replies-${tweet.id}`);
             tweet.replies.forEach(reply => {
@@ -273,129 +376,16 @@ if (tweetForm) {
           }
         });
       } else {
-        alert(data.error || 'おすすめタイムラインの読み込みに失敗しました。');
+        alert(data.error || 'おすすめの読み込みに失敗しました。');
       }
     } catch (error) {
+      console.error('おすすめ読み込みエラー:', error);
       alert('エラーが発生しました。');
     }
   }
 
-  // いいね機能
-  window.likeTweet = async (tweetId, button) => {
-    try {
-      const response = await fetch(`/tweets/${tweetId}/like`, {
-        method: 'POST',
-        headers: getHeaders()
-      });
-      const data = await response.json();
-      if (response.ok) {
-        button.textContent = `いいね (${data.likes_count})`;
-      } else {
-        alert(data.error || 'いいねに失敗しました。');
-      }
-    } catch (error) {
-      alert('エラーが発生しました。');
-    }
-  };
-
-  // リツイート機能
-  window.retweet = async (tweetId) => {
-    try {
-      const response = await fetch(`/tweets/${tweetId}/retweet`, {
-        method: 'POST',
-        headers: getHeaders()
-      });
-      if (response.ok) {
-        loadFollowingTweets();
-        loadRecommendedTweets();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'リツイートに失敗しました。');
-      }
-    } catch (error) {
-      alert('エラーが発生しました。');
-    }
-  };
-
-  // 投稿削除機能（管理者専用）
-  window.deleteTweet = async (tweetId) => {
-    if (!isAdmin()) return;
-    try {
-      const response = await fetch(`/tweets/${tweetId}`, {
-        method: 'DELETE',
-        headers: getHeaders()
-      });
-      if (response.ok) {
-        loadFollowingTweets();
-        loadRecommendedTweets();
-      } else {
-        const data = await response.json();
-        alert(data.error || '投稿の削除に失敗しました。');
-      }
-    } catch (error) {
-      alert('エラーが発生しました。');
-    }
-  };
-
-  // 投稿ピン留め機能（管理者専用）
-  window.pinTweet = async (tweetId) => {
-    if (!isAdmin()) return;
-    try {
-      const response = await fetch(`/tweets/${tweetId}/pin`, {
-        method: 'POST',
-        headers: getHeaders()
-      });
-      if (response.ok) {
-        loadFollowingTweets();
-        loadRecommendedTweets();
-      } else {
-        const data = await response.json();
-        alert(data.error || 'ピン留めに失敗しました。');
-      }
-    } catch (error) {
-      alert('エラーが発生しました。');
-    }
-  };
-
-  // 返信フォームの表示/非表示
-  window.toggleReplyForm = (tweetId) => {
-    const replyForm = document.getElementById(`replyForm-${tweetId}`);
-    replyForm.style.display = replyForm.style.display === 'block' ? 'none' : 'block';
-  };
-
-  // 返信の送信
-  window.submitReply = async (event, tweetId) => {
-    event.preventDefault();
-    const content = document.getElementById(`replyContent-${tweetId}`).value;
-
-    try {
-      const response = await fetch(`/tweets/${tweetId}/reply`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ content })
-      });
-      if (response.ok) {
-        document.getElementById(`replyContent-${tweetId}`).value = '';
-        toggleReplyForm(tweetId);
-        loadFollowingTweets();
-        loadRecommendedTweets();
-      } else {
-        const data = await response.json();
-        alert(data.error || '返信の投稿に失敗しました。');
-      }
-    } catch (error) {
-      alert('エラーが発生しました。');
-    }
-  };
-
-  // プロフィールページに移動
-  window.goToProfile = (username) => {
-    window.location.href = `/profile.html?username=${username}`;
-  };
-
-  // 初回読み込み
-  loadFollowingTweets();
-  loadRecommendedTweets();
+  loadRecommended();
+  updateUnreadBadge();
 }
 
 // プロフィールページ
@@ -405,15 +395,18 @@ if (window.location.pathname === '/profile.html') {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUsername = urlParams.get('username') || getCurrentUsername();
 
+      console.log(`プロフィール取得: ユーザー名=${targetUsername}`); // デバッグログ
       const response = await fetch(`/users/${targetUsername}`, {
         headers: getHeaders()
       });
       const data = await response.json();
+      console.log('プロフィールデータ:', data); // レスポンスデータをログ出力
+
       if (response.ok) {
         document.getElementById('profileUsername').textContent = data.username;
         document.getElementById('profileBio').textContent = data.bio || '自己紹介がありません。';
-        document.getElementById('followingCount').textContent = data.following;
-        document.getElementById('followersCount').textContent = data.followers;
+        document.getElementById('followingCount').textContent = data.followingCount; // 数値を使用
+        document.getElementById('followersCount').textContent = data.followersCount; // 数値を使用
         if (data.profileImage) {
           document.getElementById('profileImage').src = data.profileImage;
           document.getElementById('profileImage').style.display = 'block';
@@ -426,7 +419,9 @@ if (window.location.pathname === '/profile.html') {
         const currentUser = getCurrentUsername();
         const followButtonContainer = document.getElementById('followButtonContainer');
         if (currentUser !== targetUsername) {
-          const isFollowing = data.followers.includes(currentUser);
+          // data.followersが配列であることを確認
+          const isFollowing = Array.isArray(data.followers) && data.followers.includes(currentUser);
+          console.log(`フォロー状態: ${currentUser}が${targetUsername}をフォロー中=${isFollowing}`); // デバッグログ
           followButtonContainer.innerHTML = `
             <button class="btn ${isFollowing ? 'btn-outline-secondary' : 'btn-primary'}" onclick="toggleFollow('${targetUsername}', ${isFollowing})">
               ${isFollowing ? 'アンフォロー' : 'フォロー'}
@@ -452,7 +447,7 @@ if (window.location.pathname === '/profile.html') {
               ${isAdmin() ? `<button onclick="deleteTweet(${tweet.id})" class="text-danger">削除</button>` : ''}
               ${isAdmin() ? `<button onclick="pinTweet(${tweet.id})">${tweet.pinned ? 'ピン解除' : 'ピン留め'}</button>` : ''}
             </div>
-            <div class="reply-form" id="replyForm-${tweet.id}">
+            <div class="reply-form" id="replyForm-${tweet.id}" style="display: none;">
               <form onsubmit="submitReply(event, ${tweet.id})">
                 <div class="mb-3">
                   <textarea class="form-control" id="replyContent-${tweet.id}" rows="2" placeholder="返信を入力..." required></textarea>
@@ -480,10 +475,12 @@ if (window.location.pathname === '/profile.html') {
           }
         });
       } else {
+        console.error('プロフィール取得エラー:', data.error);
         alert(data.error || 'プロフィールの読み込みに失敗しました。');
       }
     } catch (error) {
-      alert('エラーが発生しました。');
+      console.error('プロフィール読み込み中にエラーが発生しました:', error);
+      alert('エラーが発生しました。詳細はコンソールを確認してください。');
     }
   }
 
@@ -503,6 +500,7 @@ if (window.location.pathname === '/profile.html') {
         alert(data.error || 'フォロー/アンフォローに失敗しました。');
       }
     } catch (error) {
+      console.error('フォロー/アンフォローエラー:', error);
       alert('エラーが発生しました。');
     }
   };
@@ -529,12 +527,14 @@ if (window.location.pathname === '/profile.html') {
           alert(data.error || 'プロフィールの更新に失敗しました。');
         }
       } catch (error) {
+        console.error('プロフィール更新エラー:', error);
         alert('エラーが発生しました。');
       }
     });
   }
 
   loadProfile();
+  updateUnreadBadge();
 }
 
 // 通知ページ
@@ -546,27 +546,28 @@ if (window.location.pathname === '/notifications.html') {
       });
       const data = await response.json();
       if (response.ok) {
-        const notificationsDiv = document.getElementById('notificationsList');
+        const notificationsDiv = document.getElementById('notifications');
         notificationsDiv.innerHTML = '';
         data.notifications.forEach(notification => {
-          const notifDiv = document.createElement('div');
-          notifDiv.className = 'notification';
-          notifDiv.innerHTML = `
-            <p class="message">${notification.message}</p>
+          const notificationDiv = document.createElement('div');
+          notificationDiv.className = `notification ${notification.read ? 'read' : 'unread'}`;
+          notificationDiv.innerHTML = `
+            <div class="message">${notification.message}</div>
             <div class="timestamp">${new Date(notification.timestamp).toLocaleString()}</div>
           `;
-          notificationsDiv.appendChild(notifDiv);
+          notificationsDiv.appendChild(notificationDiv);
         });
-        updateUnreadBadge();
       } else {
         alert(data.error || '通知の読み込みに失敗しました。');
       }
     } catch (error) {
+      console.error('通知読み込みエラー:', error);
       alert('エラーが発生しました。');
     }
   }
 
   loadNotifications();
+  updateUnreadBadge();
 }
 
 // アナリティクスページ
@@ -578,216 +579,195 @@ if (window.location.pathname === '/analytics.html') {
       });
       const data = await response.json();
       if (response.ok) {
+        // 概要
         document.getElementById('totalImpressions').textContent = data.overview.totalImpressions;
         document.getElementById('totalLikes').textContent = data.overview.totalLikes;
         document.getElementById('totalRetweets').textContent = data.overview.totalRetweets;
 
-        if (data.postStats) {
-          const postStatsDiv = document.getElementById('postStats');
-          postStatsDiv.innerHTML = '<h5>投稿ごとの統計</h5>';
-          data.postStats.forEach(stat => {
+        // 投稿ごとの統計
+        const postStatsDiv = document.getElementById('postStats');
+        postStatsDiv.innerHTML = '';
+        data.postStats.forEach(stat => {
+          const statDiv = document.createElement('div');
+          statDiv.className = 'post-stat';
+          statDiv.innerHTML = `
+            <div class="content">${stat.content}</div>
+            <div>インプレッション: ${stat.impressions}</div>
+            <div>いいね: ${stat.likes}</div>
+            <div>リツイート: ${stat.retweets}</div>
+          `;
+          postStatsDiv.appendChild(statDiv);
+        });
+
+        // 管理者向け統計
+        if (isAdmin()) {
+          document.getElementById('adminStats').style.display = 'block';
+
+          // ユーザー統計
+          const userStatsDiv = document.getElementById('userStats');
+          userStatsDiv.innerHTML = '';
+          data.userStats.forEach(stat => {
             const statDiv = document.createElement('div');
-            statDiv.className = 'card mb-2';
+            statDiv.className = 'user-stat';
             statDiv.innerHTML = `
-              <div class="card-body">
-                <p>${stat.content}</p>
-                <p>インプレッション: ${stat.impressions}</p>
-                <p>いいね: ${stat.likes}</p>
-                <p>リツイート: ${stat.retweets}</p>
-              </div>
+              <div>ユーザー名: ${stat.username}</div>
+              <div>投稿数: ${stat.posts}</div>
+              <div>インプレッション: ${stat.impressions}</div>
+              <div>いいね: ${stat.likes}</div>
+              <div>リツイート: ${stat.retweets}</div>
+              <div>フォロワー: ${stat.followers}</div>
             `;
-            postStatsDiv.appendChild(statDiv);
-          });
-        }
-
-        if (data.userStats) {
-          const adminStatsDiv = document.getElementById('adminStats');
-          adminStatsDiv.innerHTML = '<h5>ユーザー統計</h5>';
-          data.userStats.forEach(user => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'card mb-2';
-            userDiv.innerHTML = `
-              <div class="card-body">
-                <h6>${user.username}</h6>
-                <p>投稿数: ${user.posts}</p>
-                <p>インプレッション: ${user.impressions}</p>
-                <p>いいね: ${user.likes}</p>
-                <p>リツイート: ${user.retweets}</p>
-                <p>フォロワー: ${user.followers}</p>
-              </div>
-            `;
-            adminStatsDiv.appendChild(userDiv);
+            userStatsDiv.appendChild(statDiv);
           });
 
-          adminStatsDiv.innerHTML += '<h5>人気ハッシュタグ</h5>';
-          data.topHashtags.forEach(tag => {
-            const tagDiv = document.createElement('div');
-            tagDiv.className = 'card mb-2';
-            tagDiv.innerHTML = `
-              <div class="card-body">
-                <p>#${tag.tag}: ${tag.count} 回</p>
-              </div>
+          // トップハッシュタグ
+          const topHashtagsDiv = document.getElementById('topHashtags');
+          topHashtagsDiv.innerHTML = '';
+          data.topHashtags.forEach(hashtag => {
+            const hashtagDiv = document.createElement('div');
+            hashtagDiv.className = 'hashtag';
+            hashtagDiv.innerHTML = `
+              <div>#${hashtag.tag}: ${hashtag.count} 回</div>
             `;
-            adminStatsDiv.appendChild(tagDiv);
+            topHashtagsDiv.appendChild(hashtagDiv);
           });
         }
       } else {
         alert(data.error || 'アナリティクスの読み込みに失敗しました。');
       }
     } catch (error) {
+      console.error('アナリティクス読み込みエラー:', error);
       alert('エラーが発生しました。');
     }
   }
 
   loadAnalytics();
+  updateUnreadBadge();
 }
 
-// 管理者ダッシュボード
+// 管理者ページ
 if (window.location.pathname === '/admin.html') {
-  if (!isAdmin()) {
-    alert('管理者権限が必要です。');
-    window.location.href = '/timeline.html';
-  }
-
-  // ユーザーBAN
-  const banUserForm = document.getElementById('banUserForm');
-  if (banUserForm) {
-    banUserForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('banUsername').value;
-
-      try {
-        const response = await fetch(`/ban/${username}`, {
-          method: 'POST',
-          headers: getHeaders()
+  async function loadUserActivity(username) {
+    try {
+      const response = await fetch(`/users/${username}/activity`, {
+        headers:  getHeaders()
+      });
+      const data = await response.json();
+      if (response.ok) {
+        const activityDiv = document.getElementById('userActivity');
+        activityDiv.innerHTML = '';
+        data.activityLog.forEach(log => {
+          const logDiv = document.createElement('div');
+          logDiv.className = 'activity-log';
+          logDiv.innerHTML = `
+            <div>${log.username} が ${log.action} (${new Date(log.timestamp).toLocaleString()})</div>
+          `;
+          activityDiv.appendChild(logDiv);
         });
-        const data = await response.json();
-        if (response.ok) {
-          alert(data.message);
-          document.getElementById('banUsername').value = '';
-        } else {
-          alert(data.error || 'ユーザーBANに失敗しました。');
-        }
-      } catch (error) {
-        alert('エラーが発生しました。');
+      } else {
+        alert(data.error || 'アクティビティの読み込みに失敗しました。');
       }
-    });
+    } catch (error) {
+      console.error('アクティビティ読み込みエラー:', error);
+      alert('エラーが発生しました。');
+    }
   }
 
-  // ユーザーへの警告
-  const warnUserForm = document.getElementById('warnUserForm');
-  if (warnUserForm) {
-    warnUserForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('warnUsername').value;
-      const message = document.getElementById('warnMessage').value;
-
-      try {
-        const response = await fetch(`/warn/${username}`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify({ message })
-        });
-        const data = await response.json();
-        if (response.ok) {
-          alert(data.message);
-          document.getElementById('warnUsername').value = '';
-          document.getElementById('warnMessage').value = '';
-        } else {
-          alert(data.error || '警告の送信に失敗しました。');
-        }
-      } catch (error) {
-        alert('エラーが発生しました。');
-      }
-    });
-  }
-
-  // 全ユーザーへのアナウンス
-  const announceForm = document.getElementById('announceForm');
-  if (announceForm) {
-    announceForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const message = document.getElementById('announceMessage').value;
-
-      try {
-        const response = await fetch('/announce', {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify({ message })
-        });
-        const data = await response.json();
-        if (response.ok) {
-          alert(data.message);
-          document.getElementById('announceMessage').value = '';
-        } else {
-          alert(data.error || 'アナウンスの送信に失敗しました。');
-        }
-      } catch (error) {
-        alert('エラーが発生しました。');
-      }
-    });
-  }
-
-  // ユーザーアクティビティログ
-  const activityLogForm = document.getElementById('activityLogForm');
-  if (activityLogForm) {
-    activityLogForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('activityUsername').value;
-
-      try {
-        const response = await fetch(`/users/${username}/activity`, {
-          headers: getHeaders()
-        });
-        const data = await response.json();
-        if (response.ok) {
-          const logDiv = document.getElementById('activityLog');
-          logDiv.innerHTML = '';
-          data.activityLog.forEach(log => {
-            const logEntry = document.createElement('div');
-            logEntry.className = 'activity-log';
-            logEntry.innerHTML = `
-              <p class="action">${log.action}</p>
-              <div class="timestamp">${new Date(log.timestamp).toLocaleString()}</div>
-            `;
-            logDiv.appendChild(logEntry);
-          });
-        } else {
-          alert(data.error || 'アクティビティログの取得に失敗しました。');
-        }
-      } catch (error) {
-        alert('エラーが発生しました。');
-      }
-    });
-  }
-
-  // ハッシュタグトレンド
-  async function loadHashtagTrends() {
+  async function loadTrends() {
     try {
       const response = await fetch('/trends/hashtags', {
         headers: getHeaders()
       });
       const data = await response.json();
       if (response.ok) {
-        const trendsDiv = document.getElementById('hashtagTrends');
+        const trendsDiv = document.getElementById('trends');
         trendsDiv.innerHTML = '';
         data.trends.forEach(trend => {
           const trendDiv = document.createElement('div');
-          trendDiv.className = 'card mb-2';
+          trendDiv.className = 'trend';
           trendDiv.innerHTML = `
-            <div class="card-body">
-              <p>#${trend.tag}: ${trend.count} 回</p>
-            </div>
+            <div>#${trend.tag}: ${trend.count} 回</div>
           `;
           trendsDiv.appendChild(trendDiv);
         });
       } else {
-        alert(data.error || 'ハッシュタグトレンドの取得に失敗しました。');
+        alert(data.error || 'トレンドの読み込みに失敗しました。');
       }
     } catch (error) {
+      console.error('トレンド読み込みエラー:', error);
       alert('エラーが発生しました。');
     }
   }
 
-  loadHashtagTrends();
+  document.getElementById('banUserForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('banUsername').value;
+
+    try {
+      const response = await fetch(`/ban/${username}`, {
+        method: 'POST',
+        headers: getHeaders()
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert(`${username} をBANしました。`);
+      } else.ConcurrentModificationException {
+        alert(data.error || 'BANに失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  });
+
+  document.getElementById('warnUserForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('warnUsername').value;
+    const message = document.getElementById('warnMessage').value;
+
+    try {
+      const response = await fetch(`/warn/${username}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ message })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert(`${username} に警告を送信しました。`);
+      } else {
+        alert(data.error || '警告の送信に失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  });
+
+  document.getElementById('announceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = document.getElementById('announceMessage').value;
+
+    try {
+      const response = await fetch('/announce', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ message })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        alert('アナウンスを送信しました。');
+      } else {
+        alert(data.error || 'アナウンスの送信に失敗しました。');
+      }
+    } catch (error) {
+      alert('エラーが発生しました。');
+    }
+  });
+
+  document.getElementById('loadActivityForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('activityUsername').value;
+    loadUserActivity(username);
+  });
+
+  loadTrends();
+  updateUnreadBadge();
 }
