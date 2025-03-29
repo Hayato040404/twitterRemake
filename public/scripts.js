@@ -65,6 +65,7 @@ if (window.location.pathname === '/login.html') {
         alert(data.error || 'ログインに失敗しました。');
       }
     } catch (error) {
+      console.error('ログインエラー:', error);
       alert('エラーが発生しました。');
     }
   });
@@ -93,6 +94,7 @@ if (window.location.pathname === '/register.html') {
         alert(data.error || '登録に失敗しました。');
       }
     } catch (error) {
+      console.error('新規登録エラー:', error);
       alert('エラーが発生しました。');
     }
   });
@@ -119,9 +121,11 @@ async function updateUnreadBadge() {
       } else {
         badge.style.display = 'none';
       }
+    } else {
+      console.error('未読通知数の取得に失敗しました:', data.error);
     }
   } catch (error) {
-    console.error('未読通知数の取得に失敗しました:', error);
+    console.error('未読通知数の取得エラー:', error);
   }
 }
 
@@ -149,6 +153,7 @@ async function postTweet(event) {
       alert(data.error || 'ツイートの投稿に失敗しました。');
     }
   } catch (error) {
+    console.error('ツイート投稿エラー:', error);
     alert('エラーが発生しました。');
   }
 }
@@ -168,6 +173,7 @@ window.likeTweet = async (tweetId, button) => {
       alert(data.error || 'いいねに失敗しました。');
     }
   } catch (error) {
+    console.error('いいねエラー:', error);
     alert('エラーが発生しました。');
   }
 };
@@ -187,6 +193,7 @@ window.retweet = async (tweetId) => {
       alert(data.error || 'リツイートに失敗しました。');
     }
   } catch (error) {
+    console.error('リツイートエラー:', error);
     alert('エラーが発生しました。');
   }
 };
@@ -217,6 +224,7 @@ window.submitReply = async (event, tweetId) => {
       alert(data.error || '返信の投稿に失敗しました。');
     }
   } catch (error) {
+    console.error('返信エラー:', error);
     alert('エラーが発生しました。');
   }
 };
@@ -236,6 +244,7 @@ window.deleteTweet = async (tweetId) => {
         alert(data.error || 'ツイートの削除に失敗しました。');
       }
     } catch (error) {
+      console.error('ツイート削除エラー:', error);
       alert('エラーが発生しました。');
     }
   }
@@ -255,6 +264,7 @@ window.pinTweet = async (tweetId) => {
       alert(data.error || 'ピン留めに失敗しました。');
     }
   } catch (error) {
+    console.error('ピン留めエラー:', error);
     alert('エラーが発生しました。');
   }
 };
@@ -395,18 +405,18 @@ if (window.location.pathname === '/profile.html') {
       const urlParams = new URLSearchParams(window.location.search);
       const targetUsername = urlParams.get('username') || getCurrentUsername();
 
-      console.log(`プロフィール取得: ユーザー名=${targetUsername}`); // デバッグログ
+      console.log(`プロフィール取得: ユーザー名=${targetUsername}`);
       const response = await fetch(`/users/${targetUsername}`, {
         headers: getHeaders()
       });
       const data = await response.json();
-      console.log('プロフィールデータ:', data); // レスポンスデータをログ出力
+      console.log('プロフィールデータ:', data);
 
       if (response.ok) {
         document.getElementById('profileUsername').textContent = data.username;
         document.getElementById('profileBio').textContent = data.bio || '自己紹介がありません。';
-        document.getElementById('followingCount').textContent = data.followingCount; // 数値を使用
-        document.getElementById('followersCount').textContent = data.followersCount; // 数値を使用
+        document.getElementById('followingCount').textContent = data.followingCount;
+        document.getElementById('followersCount').textContent = data.followersCount;
         if (data.profileImage) {
           document.getElementById('profileImage').src = data.profileImage;
           document.getElementById('profileImage').style.display = 'block';
@@ -415,13 +425,11 @@ if (window.location.pathname === '/profile.html') {
           document.getElementById('verifiedBadge').style.display = 'inline';
         }
 
-        // フォロー/アンフォローボタンの表示
         const currentUser = getCurrentUsername();
         const followButtonContainer = document.getElementById('followButtonContainer');
         if (currentUser !== targetUsername) {
-          // data.followersが配列であることを確認
           const isFollowing = Array.isArray(data.followers) && data.followers.includes(currentUser);
-          console.log(`フォロー状態: ${currentUser}が${targetUsername}をフォロー中=${isFollowing}`); // デバッグログ
+          console.log(`フォロー状態: ${currentUser}が${targetUsername}をフォロー中=${isFollowing}`);
           followButtonContainer.innerHTML = `
             <button class="btn ${isFollowing ? 'btn-outline-secondary' : 'btn-primary'}" onclick="toggleFollow('${targetUsername}', ${isFollowing})">
               ${isFollowing ? 'アンフォロー' : 'フォロー'}
@@ -459,7 +467,6 @@ if (window.location.pathname === '/profile.html') {
           `;
           tweetsDiv.appendChild(tweetDiv);
 
-          // 返信を表示
           if (tweet.replies && tweet.replies.length > 0) {
             const repliesDiv = document.getElementById(`replies-${tweet.id}`);
             tweet.replies.forEach(reply => {
@@ -479,12 +486,11 @@ if (window.location.pathname === '/profile.html') {
         alert(data.error || 'プロフィールの読み込みに失敗しました。');
       }
     } catch (error) {
-      console.error('プロフィール読み込み中にエラーが発生しました:', error);
+      console.error('プロフィール読み込みエラー:', error);
       alert('エラーが発生しました。詳細はコンソールを確認してください。');
     }
   }
 
-  // フォロー/アンフォロー
   window.toggleFollow = async (username, isFollowing) => {
     try {
       const endpoint = isFollowing ? `/unfollow/${username}` : `/follow/${username}`;
@@ -505,7 +511,6 @@ if (window.location.pathname === '/profile.html') {
     }
   };
 
-  // プロフィール編集
   const editProfileForm = document.getElementById('editProfileForm');
   if (editProfileForm) {
     editProfileForm.addEventListener('submit', async (e) => {
@@ -519,11 +524,11 @@ if (window.location.pathname === '/profile.html') {
           headers: getHeaders(),
           body: JSON.stringify({ bio, themeColor })
         });
+        const data = await response.json();
         if (response.ok) {
           loadProfile();
           bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
         } else {
-          const data = await response.json();
           alert(data.error || 'プロフィールの更新に失敗しました。');
         }
       } catch (error) {
@@ -579,12 +584,10 @@ if (window.location.pathname === '/analytics.html') {
       });
       const data = await response.json();
       if (response.ok) {
-        // 概要
         document.getElementById('totalImpressions').textContent = data.overview.totalImpressions;
         document.getElementById('totalLikes').textContent = data.overview.totalLikes;
         document.getElementById('totalRetweets').textContent = data.overview.totalRetweets;
 
-        // 投稿ごとの統計
         const postStatsDiv = document.getElementById('postStats');
         postStatsDiv.innerHTML = '';
         data.postStats.forEach(stat => {
@@ -599,11 +602,9 @@ if (window.location.pathname === '/analytics.html') {
           postStatsDiv.appendChild(statDiv);
         });
 
-        // 管理者向け統計
         if (isAdmin()) {
           document.getElementById('adminStats').style.display = 'block';
 
-          // ユーザー統計
           const userStatsDiv = document.getElementById('userStats');
           userStatsDiv.innerHTML = '';
           data.userStats.forEach(stat => {
@@ -620,7 +621,6 @@ if (window.location.pathname === '/analytics.html') {
             userStatsDiv.appendChild(statDiv);
           });
 
-          // トップハッシュタグ
           const topHashtagsDiv = document.getElementById('topHashtags');
           topHashtagsDiv.innerHTML = '';
           data.topHashtags.forEach(hashtag => {
@@ -650,7 +650,7 @@ if (window.location.pathname === '/admin.html') {
   async function loadUserActivity(username) {
     try {
       const response = await fetch(`/users/${username}/activity`, {
-        headers:  getHeaders()
+        headers: getHeaders()
       });
       const data = await response.json();
       if (response.ok) {
@@ -715,6 +715,7 @@ if (window.location.pathname === '/admin.html') {
         alert(data.error || 'BANに失敗しました。');
       }
     } catch (error) {
+      console.error('BANエラー:', error);
       alert('エラーが発生しました。');
     }
   });
@@ -737,6 +738,7 @@ if (window.location.pathname === '/admin.html') {
         alert(data.error || '警告の送信に失敗しました。');
       }
     } catch (error) {
+      console.error('警告送信エラー:', error);
       alert('エラーが発生しました。');
     }
   });
@@ -758,6 +760,7 @@ if (window.location.pathname === '/admin.html') {
         alert(data.error || 'アナウンスの送信に失敗しました。');
       }
     } catch (error) {
+      console.error('アナウンス送信エラー:', error);
       alert('エラーが発生しました。');
     }
   });
