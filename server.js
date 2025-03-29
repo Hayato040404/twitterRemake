@@ -4,8 +4,19 @@ const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const winston = require('winston');
 const sanitizeHtml = require('sanitize-html');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
+
+// プロキシを信頼する設定（Render 環境用）
+app.set('trust proxy', 1);
+
+// ログディレクトリの作成
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
 
 // ロガーの設定
 const logger = winston.createLogger({
@@ -34,26 +45,15 @@ const limiter = rateLimit({
 app.use('/login', limiter);
 app.use('/register', limiter);
 
-// メモリ上のデータ（サーバー再起動でリセット）
+// ダミーデータ（実際はデータベースを使用する想定）
 let users = [
   {
-    username: 'admin',
-    password: bcrypt.hashSync('admin123', 10),
-    isAdmin: true,
-    following: [],
-    followers: [],
-    bio: '',
-    profileImage: '',
-    verified: true,
-    createdAt: new Date().toISOString()
-  },
-  {
     username: 'Hal',
-    password: bcrypt.hashSync('hayato0429', 10),
+    password: '$2a$10$z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0z5g7YxW0f0', // hayato0429
     isAdmin: true,
     following: [],
     followers: [],
-    bio: '管理者アカウント',
+    bio: '管理者アカウントです。',
     profileImage: '',
     verified: true,
     createdAt: new Date().toISOString()
@@ -63,52 +63,30 @@ let tweets = [];
 let notifications = [];
 let activityLog = [];
 
-// 入力バリデーション関数
+// 入力バリデーション
 function validateInput(input) {
-  if (!input || typeof input !== 'string' || input.trim() === '') {
-    return false;
-  }
-  const validPattern = /^[a-zA-Z0-9_@.-]+$/;
-  return validPattern.test(input);
+  const regex = /^[a-zA-Z0-9_@.-]+$/;
+  return regex.test(input);
 }
 
-// トークン生成
-function generateToken(user) {
-  return jwt.sign({ username: user.username, isAdmin: user.isAdmin }, 'secretkey', { expiresIn: '1h' });
-}
-
-// トークン認証ミドルウェア
+// JWT認証ミドルウェア
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+
   if (!token) {
-    logger.warn('トークンが見つかりません。');
+    logger.warn('認証失敗: トークンがありません。');
     return res.status(401).json({ error: 'トークンが必要です。' });
   }
 
-  jwt.verify(token, 'secretkey', (err, user) => {
+  jwt.verify(token, 'secret_key', (err, user) => {
     if (err) {
-      logger.warn('トークンが無効です:', err.message);
+      logger.warn('認証失敗: トークンが無効です。');
       return res.status(403).json({ error: 'トークンが無効です。' });
     }
     req.user = user;
     next();
   });
-}
-
-// 通知を追加する関数
-function addNotification(username, message) {
-  const sanitizedMessage = sanitizeHtml(message, {
-    allowedTags: [],
-    allowedAttributes: {}
-  });
-  notifications.push({
-    username,
-    message: sanitizedMessage,
-    timestamp: new Date().toISOString(),
-    read: false
-  });
-  logger.info(`通知を追加: ユーザー=${username}, メッセージ=${sanitizedMessage}`);
 }
 
 // 新規登録
@@ -148,6 +126,7 @@ app.post('/register', async (req, res) => {
     });
 
     logger.info(`新規登録成功: ユーザー=${username}`);
+    logger.debug(`現在のユーザー一覧: ${JSON.stringify(users)}`); // デバッグ用ログ
     res.status(201).json({ message: '登録成功！' });
   } catch (error) {
     logger.error('新規登録エラー:', error);
@@ -159,298 +138,293 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  if (!validateInput(username) || !validateInput(password)) {
-    logger.warn('ログイン: 無効な入力', { username });
-    return res.status(400).json({ error: 'ユーザー名またはパスワードが無効です。英数字と一部の記号（_@.-）のみ使用可能です。' });
+  const user = users.find(u => u.username === username);
+  if (!user) {
+    logger.warn(`ログイン失敗: ユーザー名 ${username} が見つかりません。`);
+    return res.status(400).json({ error: 'ユーザー名が見つかりません。' });
   }
 
   try {
-    const user = users.find(u => u.username === username);
-    if (!user) {
-      logger.warn(`ログイン失敗: ユーザー名 ${username} が見つかりません。`);
-      return res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています。' });
+    if (await bcrypt.compare(password, user.password)) {
+      const token = jwt.sign(
+        { username: user.username, isAdmin: user.isAdmin },
+        'secret_key',
+        { expiresIn: '1h' }
+      );
+      logger.info(`ログイン成功: ユーザー=${username}, トークン=${token}`);
+      res.json({ token });
+    } else {
+      logger.warn(`ログイン失敗: パスワードが間違っています。ユーザー=${username}`);
+      res.status(400).json({ error: 'パスワードが間違っています。' });
     }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      logger.warn(`ログイン失敗: パスワードが一致しません: ユーザー=${username}`);
-      return res.status(401).json({ error: 'ユーザー名またはパスワードが間違っています。' });
-    }
-
-    const token = generateToken(user);
-    activityLog.push({
-      username,
-      action: 'ログイン',
-      timestamp: new Date().toISOString()
-    });
-
-    logger.info(`ログイン成功: ユーザー=${username}, トークン=${token}`);
-    res.json({ token });
   } catch (error) {
     logger.error('ログインエラー:', error);
     res.status(500).json({ error: 'サーバーエラーが発生しました。' });
   }
 });
 
-// ツイート投稿
-app.post('/tweets', authenticateToken, (req, res) => {
-  const { content } = req.body;
-  const user = req.user;
-
-  if (!content || typeof content !== 'string' || content.trim() === '') {
-    logger.warn('ツイート投稿: 無効な内容', { username: user.username });
-    return res.status(400).json({ error: 'ツイート内容が無効です。' });
-  }
-
-  const sanitizedContent = sanitizeHtml(content, {
-    allowedTags: [],
-    allowedAttributes: {}
-  });
-
-  const tweet = {
-    id: tweets.length + 1,
-    username: user.username,
-    content: sanitizedContent,
-    timestamp: new Date().toISOString(),
-    likes: [],
-    retweets: [],
-    pinned: false,
-    replies: []
-  };
-
-  tweets.push(tweet);
-  activityLog.push({
-    username: user.username,
-    action: 'ツイート投稿',
-    timestamp: new Date().toISOString()
-  });
-
-  const userData = users.find(u => u.username === user.username);
-  userData.followers.forEach(follower => {
-    addNotification(follower, `${user.username}が新しいツイートを投稿しました: ${sanitizedContent}`);
-  });
-
-  logger.info(`ツイート投稿成功: ユーザー=${user.username}, 内容=${sanitizedContent}`);
-  res.status(201).json(tweet);
-});
-
-// ツイートに返信
-app.post('/tweets/:id/reply', authenticateToken, (req, res) => {
-  const tweetId = parseInt(req.params.id);
-  const { content } = req.body;
-  const user = req.user;
-
-  if (!content || typeof content !== 'string' || content.trim() === '') {
-    logger.warn('返信: 無効な内容', { username: user.username, tweetId });
-    return res.status(400).json({ error: '返信内容が無効です。' });
-  }
-
-  const sanitizedContent = sanitizeHtml(content, {
-    allowedTags: [],
-    allowedAttributes: {}
-  });
-
-  const tweet = tweets.find(t => t.id === tweetId);
-  if (!tweet) {
-    logger.warn(`返信失敗: ツイートが見つかりません: ID=${tweetId}`);
-    return res.status(404).json({ error: 'ツイートが見つかりません。' });
-  }
-
-  if (!tweet.replies) {
-    tweet.replies = [];
-  }
-
-  const reply = {
-    id: tweet.replies.length + 1,
-    username: user.username,
-    content: sanitizedContent,
-    timestamp: new Date().toISOString(),
-    likes: [],
-    retweets: []
-  };
-
-  tweet.replies.push(reply);
-
-  if (tweet.username !== user.username) {
-    addNotification(tweet.username, `${user.username}があなたのツイートに返信しました: ${sanitizedContent}`);
-  }
-
-  activityLog.push({
-    username: user.username,
-    action: `ツイート${tweetId}に返信`,
-    timestamp: new Date().toISOString()
-  });
-
-  logger.info(`返信成功: ユーザー=${user.username}, ツイートID=${tweetId}, 内容=${sanitizedContent}`);
-  res.status(201).json(reply);
-});
-
-// フォロー中のタイムライン
+// タイムライン（フォロー中）
 app.get('/timeline/following', authenticateToken, (req, res) => {
-  const user = req.user;
-  const userData = users.find(u => u.username === user.username);
-  const followingTweets = tweets
-    .filter(t => userData.following.includes(t.username) || t.username === user.username)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const currentUser = req.user.username;
+  const user = users.find(u => u.username === currentUser);
 
-  logger.info(`フォロー中タイムライン取得: ユーザー=${user.username}`);
+  const followingTweets = tweets
+    .filter(t => user.following.includes(t.username) || t.username === currentUser)
+    .sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return new Date(b.timestamp) - new Date(a.timestamp);
+    });
+
+  logger.info(`フォロー中タイムライン取得: ユーザー=${currentUser}`);
   res.json({ tweets: followingTweets });
 });
 
 // おすすめタイムライン
 app.get('/timeline/recommended', authenticateToken, (req, res) => {
-  const user = req.user;
   const recommendedTweets = tweets
-    .filter(t => t.username !== user.username)
-    .sort((a, b) => (b.likes.length + b.retweets.length) - (a.likes.length + a.retweets.length));
+    .sort((a, b) => {
+      const aScore = a.likes.length + a.retweets.length;
+      const bScore = b.likes.length + b.retweets.length;
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return bScore - aScore || new Date(b.timestamp) - new Date(a.timestamp);
+    })
+    .slice(0, 50);
 
-  logger.info(`おすすめタイムライン取得: ユーザー=${user.username}`);
+  logger.info(`おすすめタイムライン取得: ユーザー=${req.user.username}`);
   res.json({ tweets: recommendedTweets });
+});
+
+// ツイート投稿
+app.post('/tweets', authenticateToken, (req, res) => {
+  const { content } = req.body;
+  const cleanContent = sanitizeHtml(content, {
+    allowedTags: [],
+    allowedAttributes: {}
+  });
+
+  if (!cleanContent || cleanContent.length > 280) {
+    logger.warn(`ツイート投稿失敗: 無効な内容。ユーザー=${req.user.username}`);
+    return res.status(400).json({ error: 'ツイートは1～280文字で入力してください。' });
+  }
+
+  const tweet = {
+    id: tweets.length + 1,
+    username: req.user.username,
+    content: cleanContent,
+    timestamp: new Date().toISOString(),
+    likes: [],
+    retweets: [],
+    replies: [],
+    pinned: false
+  };
+
+  tweets.push(tweet);
+  activityLog.push({
+    username: req.user.username,
+    action: 'ツイート投稿',
+    timestamp: new Date().toISOString()
+  });
+
+  users.forEach(user => {
+    if (user.followers.includes(req.user.username) && user.username !== req.user.username) {
+      notifications.push({
+        username: user.username,
+        message: `${req.user.username} が新しいツイートを投稿しました: ${cleanContent.substring(0, 50)}...`,
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    }
+  });
+
+  logger.info(`ツイート投稿成功: ユーザー=${req.user.username}, 内容=${cleanContent}`);
+  res.status(201).json(tweet);
 });
 
 // いいね
 app.post('/tweets/:id/like', authenticateToken, (req, res) => {
   const tweetId = parseInt(req.params.id);
-  const user = req.user;
-
   const tweet = tweets.find(t => t.id === tweetId);
+
   if (!tweet) {
-    logger.warn(`いいね失敗: ツイートが見つかりません: ID=${tweetId}`);
+    logger.warn(`いいね失敗: ツイートが見つかりません。ID=${tweetId}`);
     return res.status(404).json({ error: 'ツイートが見つかりません。' });
   }
 
-  if (tweet.likes.includes(user.username)) {
-    tweet.likes = tweet.likes.filter(u => u !== user.username);
-    logger.info(`いいね解除: ユーザー=${user.username}, ツイートID=${tweetId}`);
+  if (tweet.likes.includes(req.user.username)) {
+    tweet.likes = tweet.likes.filter(u => u !== req.user.username);
   } else {
-    tweet.likes.push(user.username);
-    if (tweet.username !== user.username) {
-      addNotification(tweet.username, `${user.username}があなたのツイートにいいねしました。`);
+    tweet.likes.push(req.user.username);
+    if (tweet.username !== req.user.username) {
+      notifications.push({
+        username: tweet.username,
+        message: `${req.user.username} があなたのツイートにいいねしました。`,
+        timestamp: new Date().toISOString(),
+        read: false
+      });
     }
-    logger.info(`いいね成功: ユーザー=${user.username}, ツイートID=${tweetId}`);
   }
 
-  activityLog.push({
-    username: user.username,
-    action: `ツイート${tweetId}にいいね`,
-    timestamp: new Date().toISOString()
-  });
-
+  logger.info(`いいね成功: ユーザー=${req.user.username}, ツイートID=${tweetId}`);
   res.json({ likes_count: tweet.likes.length });
 });
 
 // リツイート
 app.post('/tweets/:id/retweet', authenticateToken, (req, res) => {
   const tweetId = parseInt(req.params.id);
-  const user = req.user;
-
   const tweet = tweets.find(t => t.id === tweetId);
+
   if (!tweet) {
-    logger.warn(`リツイート失敗: ツイートが見つかりません: ID=${tweetId}`);
+    logger.warn(`リツイート失敗: ツイートが見つかりません。ID=${tweetId}`);
     return res.status(404).json({ error: 'ツイートが見つかりません。' });
   }
 
-  if (tweet.retweets.includes(user.username)) {
-    logger.warn(`リツイート失敗: すでにリツイート済み: ユーザー=${user.username}, ツイートID=${tweetId}`);
-    return res.status(400).json({ error: 'すでにリツイートしています。' });
+  if (tweet.retweets.includes(req.user.username)) {
+    logger.warn(`リツイート失敗: すでにリツイート済み。ユーザー=${req.user.username}, ツイートID=${tweetId}`);
+    return res.status(400).json({ error: 'すでにリツイート済みです。' });
   }
 
-  tweet.retweets.push(user.username);
-  if (tweet.username !== user.username) {
-    addNotification(tweet.username, `${user.username}があなたのツイートをリツイートしました。`);
-  }
-
+  tweet.retweets.push(req.user.username);
   const retweet = {
     id: tweets.length + 1,
-    username: user.username,
-    content: `RT: ${tweet.content}`,
+    username: req.user.username,
+    content: `RT @${tweet.username}: ${tweet.content}`,
     timestamp: new Date().toISOString(),
     likes: [],
     retweets: [],
-    pinned: false,
-    originalTweetId: tweetId
+    replies: [],
+    pinned: false
   };
 
   tweets.push(retweet);
-  activityLog.push({
-    username: user.username,
-    action: `ツイート${tweetId}をリツイート`,
-    timestamp: new Date().toISOString()
+  if (tweet.username !== req.user.username) {
+    notifications.push({
+      username: tweet.username,
+      message: `${req.user.username} があなたのツイートをリツイートしました。`,
+      timestamp: new Date().toISOString(),
+      read: false
+    });
+  }
+
+  logger.info(`リツイート成功: ユーザー=${req.user.username}, ツイートID=${tweetId}`);
+  res.status(201).json(retweet);
+});
+
+// 返信
+app.post('/tweets/:id/reply', authenticateToken, (req, res) => {
+  const tweetId = parseInt(req.params.id);
+  const tweet = tweets.find(t => t.id === tweetId);
+
+  if (!tweet) {
+    logger.warn(`返信失敗: ツイートが見つかりません。ID=${tweetId}`);
+    return res.status(404).json({ error: 'ツイートが見つかりません。' });
+  }
+
+  const { content } = req.body;
+  const cleanContent = sanitizeHtml(content, {
+    allowedTags: [],
+    allowedAttributes: {}
   });
 
-  logger.info(`リツイート成功: ユーザー=${user.username}, ツイートID=${tweetId}`);
-  res.status(201).json(retweet);
+  if (!cleanContent || cleanContent.length > 280) {
+    logger.warn(`返信失敗: 無効な内容。ユーザー=${req.user.username}`);
+    return res.status(400).json({ error: '返信は1～280文字で入力してください。' });
+  }
+
+  const reply = {
+    id: (tweet.replies ? tweet.replies.length : 0) + 1,
+    username: req.user.username,
+    content: cleanContent,
+    timestamp: new Date().toISOString()
+  };
+
+  if (!tweet.replies) tweet.replies = [];
+  tweet.replies.push(reply);
+
+  if (tweet.username !== req.user.username) {
+    notifications.push({
+      username: tweet.username,
+      message: `${req.user.username} があなたのツイートに返信しました: ${cleanContent.substring(0, 50)}...`,
+      timestamp: new Date().toISOString(),
+      read: false
+    });
+  }
+
+  logger.info(`返信成功: ユーザー=${req.user.username}, ツイートID=${tweetId}`);
+  res.status(201).json(reply);
 });
 
 // ツイート削除（管理者専用）
 app.delete('/tweets/:id', authenticateToken, (req, res) => {
-  const tweetId = parseInt(req.params.id);
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`ツイート削除失敗: 管理者権限なし: ユーザー=${user.username}, ツイートID=${tweetId}`);
+  if (!req.user.isAdmin) {
+    logger.warn(`ツイート削除失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
     return res.status(403).json({ error: '管理者権限が必要です。' });
   }
 
+  const tweetId = parseInt(req.params.id);
   const tweetIndex = tweets.findIndex(t => t.id === tweetId);
+
   if (tweetIndex === -1) {
-    logger.warn(`ツイート削除失敗: ツイートが見つかりません: ID=${tweetId}`);
+    logger.warn(`ツイート削除失敗: ツイートが見つかりません。ID=${tweetId}`);
     return res.status(404).json({ error: 'ツイートが見つかりません。' });
   }
 
+  const tweet = tweets[tweetIndex];
   tweets.splice(tweetIndex, 1);
   activityLog.push({
-    username: user.username,
-    action: `ツイート${tweetId}を削除`,
+    username: req.user.username,
+    action: `ツイート削除 (ID: ${tweetId})`,
     timestamp: new Date().toISOString()
   });
 
-  logger.info(`ツイート削除成功: ユーザー=${user.username}, ツイートID=${tweetId}`);
+  logger.info(`ツイート削除成功: ユーザー=${req.user.username}, ツイートID=${tweetId}`);
   res.json({ message: 'ツイートを削除しました。' });
 });
 
 // ツイートピン留め（管理者専用）
 app.post('/tweets/:id/pin', authenticateToken, (req, res) => {
-  const tweetId = parseInt(req.params.id);
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`ピン留め失敗: 管理者権限なし: ユーザー=${user.username}, ツイートID=${tweetId}`);
+  if (!req.user.isAdmin) {
+    logger.warn(`ピン留め失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
     return res.status(403).json({ error: '管理者権限が必要です。' });
   }
 
+  const tweetId = parseInt(req.params.id);
   const tweet = tweets.find(t => t.id === tweetId);
+
   if (!tweet) {
-    logger.warn(`ピン留め失敗: ツイートが見つかりません: ID=${tweetId}`);
+    logger.warn(`ピン留め失敗: ツイートが見つかりません。ID=${tweetId}`);
     return res.status(404).json({ error: 'ツイートが見つかりません。' });
   }
 
   tweet.pinned = !tweet.pinned;
   activityLog.push({
-    username: user.username,
-    action: `ツイート${tweetId}を${tweet.pinned ? 'ピン留め' : 'ピン解除'}`,
+    username: req.user.username,
+    action: `ツイート${tweet.pinned ? 'ピン留め' : 'ピン解除'} (ID: ${tweetId})`,
     timestamp: new Date().toISOString()
   });
 
-  logger.info(`ピン留め/解除成功: ユーザー=${user.username}, ツイートID=${tweetId}, 状態=${tweet.pinned}`);
+  logger.info(`ピン留め成功: ユーザー=${req.user.username}, ツイートID=${tweetId}, 状態=${tweet.pinned}`);
   res.json({ message: tweet.pinned ? 'ツイートをピン留めしました。' : 'ピン留めを解除しました。' });
 });
 
-// プロフィール取得
+// ユーザー情報取得
 app.get('/users/:username', authenticateToken, (req, res) => {
-  const username = req.params.username;
-  const user = users.find(u => u.username === username);
+  const targetUsername = req.params.username;
+  const user = users.find(u => u.username === targetUsername);
+
   if (!user) {
-    logger.warn(`プロフィール取得失敗: ユーザーが見つかりません: ユーザー=${username}`);
+    logger.warn(`ユーザー情報取得失敗: ユーザー名 ${targetUsername} が見つかりません。`);
     return res.status(404).json({ error: 'ユーザーが見つかりません。' });
   }
 
   const recentTweets = tweets
-    .filter(t => t.username === username && !t.originalTweetId)
+    .filter(t => t.username === targetUsername)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .slice(0, 10);
+    .slice(0, 20);
 
-  const responseData = {
+  logger.info(`ユーザー情報取得成功: ユーザー=${targetUsername}`);
+  res.json({
     username: user.username,
     bio: user.bio,
     profileImage: user.profileImage,
@@ -459,137 +433,145 @@ app.get('/users/:username', authenticateToken, (req, res) => {
     followersCount: user.followers.length,
     followers: user.followers,
     recent_tweets: recentTweets
-  };
+  });
+});
 
-  logger.info(`プロフィール取得成功: ユーザー=${username}`);
-  res.json(responseData);
+// フォロー
+app.post('/follow/:username', authenticateToken, (req, res) => {
+  const targetUsername = req.params.username;
+  const currentUser = req.user.username;
+
+  if (currentUser === targetUsername) {
+    logger.warn(`フォロー失敗: 自分自身をフォローできません。ユーザー=${currentUser}`);
+    return res.status(400).json({ error: '自分自身をフォローできません。' });
+  }
+
+  const targetUser = users.find(u => u.username === targetUsername);
+  const currentUserData = users.find(u => u.username === currentUser);
+
+  if (!targetUser) {
+    logger.warn(`フォロー失敗: ユーザー名 ${targetUsername} が見つかりません。`);
+    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+  }
+
+  if (currentUserData.following.includes(targetUsername)) {
+    logger.warn(`フォロー失敗: すでにフォロー済み。ユーザー=${currentUser}, 対象=${targetUsername}`);
+    return res.status(400).json({ error: 'すでにフォローしています。' });
+  }
+
+  currentUserData.following.push(targetUsername);
+  targetUser.followers.push(currentUser);
+
+  notifications.push({
+    username: targetUsername,
+    message: `${currentUser} があなたをフォローしました。`,
+    timestamp: new Date().toISOString(),
+    read: false
+  });
+
+  activityLog.push({
+    username: currentUser,
+    action: `${targetUsername} をフォロー`,
+    timestamp: new Date().toISOString()
+  });
+
+  logger.info(`フォロー成功: ユーザー=${currentUser}, 対象=${targetUsername}`);
+  res.json({ message: 'フォローしました。' });
+});
+
+// アンフォロー
+app.post('/unfollow/:username', authenticateToken, (req, res) => {
+  const targetUsername = req.params.username;
+  const currentUser = req.user.username;
+
+  if (currentUser === targetUsername) {
+    logger.warn(`アンフォロー失敗: 自分自身をアンフォローできません。ユーザー=${currentUser}`);
+    return res.status(400).json({ error: '自分自身をアンフォローできません。' });
+  }
+
+  const targetUser = users.find(u => u.username === targetUsername);
+  const currentUserData = users.find(u => u.username === currentUser);
+
+  if (!targetUser) {
+    logger.warn(`アンフォロー失敗: ユーザー名 ${targetUsername} が見つかりません。`);
+    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+  }
+
+  if (!currentUserData.following.includes(targetUsername)) {
+    logger.warn(`アンフォロー失敗: フォローしていません。ユーザー=${currentUser}, 対象=${targetUsername}`);
+    return res.status(400).json({ error: 'フォローしていません。' });
+  }
+
+  currentUserData.following = currentUserData.following.filter(u => u !== targetUsername);
+  targetUser.followers = targetUser.followers.filter(u => u !== currentUser);
+
+  activityLog.push({
+    username: currentUser,
+    action: `${targetUsername} をアンフォロー`,
+    timestamp: new Date().toISOString()
+  });
+
+  logger.info(`アンフォロー成功: ユーザー=${currentUser}, 対象=${targetUsername}`);
+  res.json({ message: 'アンフォローしました。' });
 });
 
 // プロフィール更新
 app.post('/profile/update', authenticateToken, (req, res) => {
   const { bio, themeColor } = req.body;
-  const user = req.user;
+  const cleanBio = sanitizeHtml(bio, {
+    allowedTags: [],
+    allowedAttributes: {}
+  });
 
-  if (typeof bio !== 'string' || typeof themeColor !== 'string') {
-    logger.warn('プロフィール更新: 無効な入力', { username: user.username });
-    return res.status(400).json({ error: '無効な入力です。' });
+  if (cleanBio.length > 160) {
+    logger.warn(`プロフィール更新失敗: 自己紹介が長すぎます。ユーザー=${req.user.username}`);
+    return res.status(400).json({ error: '自己紹介は160文字以内にしてください。' });
   }
 
-  const userData = users.find(u => u.username === user.username);
-  if (!userData) {
-    logger.warn(`プロフィール更新失敗: ユーザーが見つかりません: ユーザー=${user.username}`);
-    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
-  }
+  const user = users.find(u => u.username === req.user.username);
+  user.bio = cleanBio;
+  // themeColor はクライアント側で適用（今回は実装省略）
 
-  userData.bio = sanitizeHtml(bio, { allowedTags: [], allowedAttributes: {} });
-  userData.themeColor = sanitizeHtml(themeColor, { allowedTags: [], allowedAttributes: {} });
   activityLog.push({
-    username: user.username,
+    username: req.user.username,
     action: 'プロフィール更新',
     timestamp: new Date().toISOString()
   });
 
-  logger.info(`プロフィール更新成功: ユーザー=${user.username}`);
+  logger.info(`プロフィール更新成功: ユーザー=${req.user.username}`);
   res.json({ message: 'プロフィールを更新しました。' });
 });
 
-// 通知の取得（既読に更新）
+// 通知取得
 app.get('/notifications', authenticateToken, (req, res) => {
-  const user = req.user;
-  const userNotifications = notifications.filter(n => n.username === user.username);
+  const userNotifications = notifications
+    .filter(n => n.username === req.user.username)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   userNotifications.forEach(n => {
     if (!n.read) n.read = true;
   });
 
-  logger.info(`通知取得成功: ユーザー=${user.username}`);
+  logger.info(`通知取得成功: ユーザー=${req.user.username}`);
   res.json({ notifications: userNotifications });
 });
 
-// 未読通知数の取得
+// 未読通知数
 app.get('/notifications/unread', authenticateToken, (req, res) => {
-  const user = req.user;
-  const unreadCount = notifications.filter(n => n.username === user.username && !n.read).length;
+  const unreadCount = notifications
+    .filter(n => n.username === req.user.username && !n.read)
+    .length;
 
-  logger.info(`未読通知数取得成功: ユーザー=${user.username}, 未読数=${unreadCount}`);
+  logger.info(`未読通知数取得成功: ユーザー=${req.user.username}, 未読数=${unreadCount}`);
   res.json({ unreadCount });
-});
-
-// フォロー
-app.post('/follow/:username', authenticateToken, (req, res) => {
-  const usernameToFollow = req.params.username;
-  const user = req.user;
-
-  if (usernameToFollow === user.username) {
-    logger.warn(`フォロー失敗: 自分自身をフォローすることはできません: ユーザー=${user.username}`);
-    return res.status(400).json({ error: '自分自身をフォローすることはできません。' });
-  }
-
-  const targetUser = users.find(u => u.username === usernameToFollow);
-  if (!targetUser) {
-    logger.warn(`フォロー失敗: ユーザーが見つかりません: ターゲット=${usernameToFollow}`);
-    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
-  }
-
-  const userData = users.find(u => u.username === user.username);
-  if (!userData.following.includes(usernameToFollow)) {
-    userData.following.push(usernameToFollow);
-    targetUser.followers.push(user.username);
-
-    addNotification(usernameToFollow, `${user.username}があなたをフォローしました。`);
-    activityLog.push({
-      username: user.username,
-      action: `${usernameToFollow}をフォロー`,
-      timestamp: new Date().toISOString()
-    });
-
-    logger.info(`フォロー成功: ユーザー=${user.username}, ターゲット=${usernameToFollow}`);
-  }
-
-  res.json({ message: `${usernameToFollow}をフォローしました。` });
-});
-
-// アンフォロー
-app.post('/unfollow/:username', authenticateToken, (req, res) => {
-  const usernameToUnfollow = req.params.username;
-  const user = req.user;
-
-  if (usernameToUnfollow === user.username) {
-    logger.warn(`アンフォロー失敗: 自分自身をアンフォローすることはできません: ユーザー=${user.username}`);
-    return res.status(400).json({ error: '自分自身をアンフォローすることはできません。' });
-  }
-
-  const targetUser = users.find(u => u.username === usernameToUnfollow);
-  if (!targetUser) {
-    logger.warn(`アンフォロー失敗: ユーザーが見つかりません: ターゲット=${usernameToUnfollow}`);
-    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
-  }
-
-  const userData = users.find(u => u.username === user.username);
-  userData.following = userData.following.filter(u => u !== usernameToUnfollow);
-  targetUser.followers = targetUser.followers.filter(u => u !== user.username);
-
-  addNotification(usernameToUnfollow, `${user.username}があなたをアンフォローしました。`);
-  activityLog.push({
-    username: user.username,
-    action: `${usernameToUnfollow}をアンフォロー`,
-    timestamp: new Date().toISOString()
-  });
-
-  logger.info(`アンフォロー成功: ユーザー=${user.username}, ターゲット=${usernameToUnfollow}`);
-  res.json({ message: `${usernameToUnfollow}をアンフォローしました。` });
 });
 
 // アナリティクス
 app.get('/analytics', authenticateToken, (req, res) => {
-  const user = req.user;
-  const userTweets = tweets.filter(t => t.username === user.username && !t.originalTweetId);
-
-  const overview = {
-    totalImpressions: userTweets.reduce((sum, t) => sum + t.likes.length + t.retweets.length, 0),
-    totalLikes: userTweets.reduce((sum, t) => sum + t.likes.length, 0),
-    totalRetweets: userTweets.reduce((sum, t) => sum + t.retweets.length, 0)
-  };
+  const userTweets = tweets.filter(t => t.username === req.user.username);
+  const totalImpressions = userTweets.reduce((sum, t) => sum + t.likes.length + t.retweets.length, 0);
+  const totalLikes = userTweets.reduce((sum, t) => sum + t.likes.length, 0);
+  const totalRetweets = userTweets.reduce((sum, t) => sum + t.retweets.length, 0);
 
   const postStats = userTweets.map(t => ({
     content: t.content,
@@ -598,167 +580,201 @@ app.get('/analytics', authenticateToken, (req, res) => {
     retweets: t.retweets.length
   }));
 
-  let responseData = { overview, postStats };
-
-  if (user.isAdmin) {
-    const userStats = users.map(u => ({
+  let userStats = [];
+  let topHashtags = [];
+  if (req.user.isAdmin) {
+    userStats = users.map(u => ({
       username: u.username,
-      posts: tweets.filter(t => t.username === u.username && !t.originalTweetId).length,
-      impressions: tweets.filter(t => t.username === u.username).reduce((sum, t) => sum + t.likes.length + t.retweets.length, 0),
-      likes: tweets.filter(t => t.username === u.username).reduce((sum, t) => sum + t.likes.length, 0),
-      retweets: tweets.filter(t => t.username === u.username).reduce((sum, t) => sum + t.retweets.length, 0),
+      posts: tweets.filter(t => t.username === u.username).length,
+      impressions: tweets
+        .filter(t => t.username === u.username)
+        .reduce((sum, t) => sum + t.likes.length + t.retweets.length, 0),
+      likes: tweets
+        .filter(t => t.username === u.username)
+        .reduce((sum, t) => sum + t.likes.length, 0),
+      retweets: tweets
+        .filter(t => t.username === u.username)
+        .reduce((sum, t) => sum + t.retweets.length, 0),
       followers: u.followers.length
     }));
 
     const hashtagCounts = {};
     tweets.forEach(t => {
-      const hashtags = t.content.match(/#[^\s]+/g) || [];
+      const hashtags = t.content.match(/#[a-zA-Z0-9_]+/g) || [];
       hashtags.forEach(tag => {
-        const cleanTag = tag.slice(1).toLowerCase();
-        hashtagCounts[cleanTag] = (hashtagCounts[cleanTag] || 0) + 1;
+        hashtagCounts[tag] = (hashtagCounts[tag] || 0) + 1;
       });
     });
 
-    const topHashtags = Object.entries(hashtagCounts)
-      .map(([tag, count]) => ({ tag, count }))
+    topHashtags = Object.entries(hashtagCounts)
+      .map(([tag, count]) => ({ tag: tag.substring(1), count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    responseData.userStats = userStats;
-    responseData.topHashtags = topHashtags;
+      .slice(0, 10);
   }
 
-  logger.info(`アナリティクス取得成功: ユーザー=${user.username}`);
-  res.json(responseData);
+  logger.info(`アナリティクス取得成功: ユーザー=${req.user.username}`);
+  res.json({
+    overview: {
+      totalImpressions,
+      totalLikes,
+      totalRetweets
+    },
+    postStats,
+    userStats,
+    topHashtags
+  });
 });
 
-// ユーザーBAN（管理者専用）
-app.post('/ban/:username', authenticateToken, (req, res) => {
-  const username = req.params.username;
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`BAN失敗: 管理者権限なし: ユーザー=${user.username}, ターゲット=${username}`);
-    return res.status(403).json({ error: '管理者権限が必要です。' });
-  }
-
-  const userIndex = users.findIndex(u => u.username === username);
-  if (userIndex === -1) {
-    logger.warn(`BAN失敗: ユーザーが見つかりません: ターゲット=${username}`);
-    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
-  }
-
-  users.splice(userIndex, 1);
-  tweets = tweets.filter(t => t.username !== username);
-  activityLog.push({
-    username: user.username,
-    action: `${username}をBAN`,
-    timestamp: new Date().toISOString()
-  });
-
-  logger.info(`BAN成功: ユーザー=${user.username}, ターゲット=${username}`);
-  res.json({ message: `${username}をBANしました。` });
-});
-
-// ユーザーへの警告（管理者専用）
-app.post('/warn/:username', authenticateToken, (req, res) => {
-  const username = req.params.username;
-  const { message } = req.body;
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`警告失敗: 管理者権限なし: ユーザー=${user.username}, ターゲット=${username}`);
-    return res.status(403).json({ error: '管理者権限が必要です。' });
-  }
-
-  const targetUser = users.find(u => u.username === username);
-  if (!targetUser) {
-    logger.warn(`警告失敗: ユーザーが見つかりません: ターゲット=${username}`);
-    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
-  }
-
-  const sanitizedMessage = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} });
-  addNotification(username, `管理者からの警告: ${sanitizedMessage}`);
-  activityLog.push({
-    username: user.username,
-    action: `${username}に警告`,
-    timestamp: new Date().toISOString()
-  });
-
-  logger.info(`警告送信成功: ユーザー=${user.username}, ターゲット=${username}, メッセージ=${sanitizedMessage}`);
-  res.json({ message: `${username}に警告を送信しました。` });
-});
-
-// 全ユーザーへのアナウンス（管理者専用）
-app.post('/announce', authenticateToken, (req, res) => {
-  const { message } = req.body;
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`アナウンス失敗: 管理者権限なし: ユーザー=${user.username}`);
-    return res.status(403).json({ error: '管理者権限が必要です。' });
-  }
-
-  const sanitizedMessage = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} });
-  users.forEach(u => {
-    if (u.username !== user.username) {
-      addNotification(u.username, `管理者からのアナウンス: ${sanitizedMessage}`);
-    }
-  });
-
-  activityLog.push({
-    username: user.username,
-    action: 'アナウンス送信',
-    timestamp: new Date().toISOString()
-  });
-
-  logger.info(`アナウンス送信成功: ユーザー=${user.username}, メッセージ=${sanitizedMessage}`);
-  res.json({ message: 'アナウンスを送信しました。' });
-});
-
-// ユーザーアクティビティログ（管理者専用）
+// ユーザーアクティビティ（管理者専用）
 app.get('/users/:username/activity', authenticateToken, (req, res) => {
-  const username = req.params.username;
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`アクティビティログ取得失敗: 管理者権限なし: ユーザー=${user.username}, ターゲット=${username}`);
+  if (!req.user.isAdmin) {
+    logger.warn(`アクティビティ取得失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
     return res.status(403).json({ error: '管理者権限が必要です。' });
   }
 
-  const userActivity = activityLog.filter(log => log.username === username);
-  logger.info(`アクティビティログ取得成功: ユーザー=${user.username}, ターゲット=${username}`);
+  const targetUsername = req.params.username;
+  const userActivity = activityLog
+    .filter(log => log.username === targetUsername)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  logger.info(`アクティビティ取得成功: ユーザー=${targetUsername}`);
   res.json({ activityLog: userActivity });
 });
 
-// ハッシュタグトレンド（管理者専用）
+// トレンド（管理者専用）
 app.get('/trends/hashtags', authenticateToken, (req, res) => {
-  const user = req.user;
-
-  if (!user.isAdmin) {
-    logger.warn(`トレンド取得失敗: 管理者権限なし: ユーザー=${user.username}`);
+  if (!req.user.isAdmin) {
+    logger.warn(`トレンド取得失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
     return res.status(403).json({ error: '管理者権限が必要です。' });
   }
 
   const hashtagCounts = {};
   tweets.forEach(t => {
-    const hashtags = t.content.match(/#[^\s]+/g) || [];
+    const hashtags = t.content.match(/#[a-zA-Z0-9_]+/g) || [];
     hashtags.forEach(tag => {
-      const cleanTag = tag.slice(1).toLowerCase();
-      hashtagCounts[cleanTag] = (hashtagCounts[cleanTag] || 0) + 1;
+      hashtagCounts[tag] = (hashtagCounts[tag] || 0) + 1;
     });
   });
 
   const trends = Object.entries(hashtagCounts)
-    .map(([tag, count]) => ({ tag, count }))
+    .map(([tag, count]) => ({ tag: tag.substring(1), count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .slice(0, 10);
 
-  logger.info(`トレンド取得成功: ユーザー=${user.username}`);
+  logger.info(`トレンド取得成功: ユーザー=${req.user.username}`);
   res.json({ trends });
+});
+
+// ユーザーBAN（管理者専用）
+app.post('/ban/:username', authenticateToken, (req, res) => {
+  if (!req.user.isAdmin) {
+    logger.warn(`BAN失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
+    return res.status(403).json({ error: '管理者権限が必要です。' });
+  }
+
+  const targetUsername = req.params.username;
+  const userIndex = users.findIndex(u => u.username === targetUsername);
+
+  if (userIndex === -1) {
+    logger.warn(`BAN失敗: ユーザー名 ${targetUsername} が見つかりません。`);
+    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+  }
+
+  users.splice(userIndex, 1);
+  tweets = tweets.filter(t => t.username !== targetUsername);
+  notifications = notifications.filter(n => n.username !== targetUsername);
+  activityLog.push({
+    username: req.user.username,
+    action: `${targetUsername} をBAN`,
+    timestamp: new Date().toISOString()
+  });
+
+  logger.info(`BAN成功: ユーザー=${targetUsername}, 実行者=${req.user.username}`);
+  res.json({ message: 'ユーザーをBANしました。' });
+});
+
+// 警告送信（管理者専用）
+app.post('/warn/:username', authenticateToken, (req, res) => {
+  if (!req.user.isAdmin) {
+    logger.warn(`警告送信失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
+    return res.status(403).json({ error: '管理者権限が必要です。' });
+  }
+
+  const targetUsername = req.params.username;
+  const { message } = req.body;
+  const cleanMessage = sanitizeHtml(message, {
+    allowedTags: [],
+    allowedAttributes: {}
+  });
+
+  if (!cleanMessage) {
+    logger.warn(`警告送信失敗: メッセージが空です。対象=${targetUsername}`);
+    return res.status(400).json({ error: 'メッセージが必要です。' });
+  }
+
+  const targetUser = users.find(u => u.username === targetUsername);
+  if (!targetUser) {
+    logger.warn(`警告送信失敗: ユーザー名 ${targetUsername} が見つかりません。`);
+    return res.status(404).json({ error: 'ユーザーが見つかりません。' });
+  }
+
+  notifications.push({
+    username: targetUsername,
+    message: `管理者からの警告: ${cleanMessage}`,
+    timestamp: new Date().toISOString(),
+    read: false
+  });
+
+  activityLog.push({
+    username: req.user.username,
+    action: `${targetUsername} に警告送信`,
+    timestamp: new Date().toISOString()
+  });
+
+  logger.info(`警告送信成功: 対象=${targetUsername}, 実行者=${req.user.username}`);
+  res.json({ message: '警告を送信しました。' });
+});
+
+// アナウンス（管理者専用）
+app.post('/announce', authenticateToken, (req, res) => {
+  if (!req.user.isAdmin) {
+    logger.warn(`アナウンス失敗: 管理者権限がありません。ユーザー=${req.user.username}`);
+    return res.status(403).json({ error: '管理者権限が必要です。' });
+  }
+
+  const { message } = req.body;
+  const cleanMessage = sanitizeHtml(message, {
+    allowedTags: [],
+    allowedAttributes: {}
+  });
+
+  if (!cleanMessage) {
+    logger.warn(`アナウンス失敗: メッセージが空です。`);
+    return res.status(400).json({ error: 'メッセージが必要です。' });
+  }
+
+  users.forEach(user => {
+    if (user.username !== req.user.username) {
+      notifications.push({
+        username: user.username,
+        message: `管理者からのアナウンス: ${cleanMessage}`,
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    }
+  });
+
+  activityLog.push({
+    username: req.user.username,
+    action: 'アナウンス送信',
+    timestamp: new Date().toISOString()
+  });
+
+  logger.info(`アナウンス送信成功: 実行者=${req.user.username}`);
+  res.json({ message: 'アナウンスを送信しました。' });
 });
 
 // サーバー起動
 app.listen(port, () => {
-  logger.info(`サーバーがポート${port}で起動しました。`);
+  logger.info(`サーバーがポート ${port} で起動しました。`);
 });
