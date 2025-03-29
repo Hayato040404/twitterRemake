@@ -3,57 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>アナリティクス - Twitter Clone</title>
+  <title>アナリティクス - Twitterクローン</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- ナビゲーションバー -->
-  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
-    <div class="container">
-      <a class="navbar-brand" href="/timeline.html">
-        <svg viewBox="0 0 24 24" width="30" height="30" fill="#1DA1F2">
-          <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733a4.67 4.67 0 0 0 2.048-2.578 9.3 9.3 0 0 1-2.958 1.13 4.66 4.66 0 0 0-7.938 4.25 13.229 13.229 0 0 1-9.602-4.868 4.66 4.66 0 0 0 1.442 6.22 4.647 4.647 0 0 1-2.11-.583v.06a4.66 4.66 0 0 0 3.737 4.568 4.692 4.692 0 0 1-2.104.08 4.661 4.661 0 0 0 4.352 3.234 9.348 9.348 0 0 1-5.786 1.995 9.5 9.5 0 0 1-1.11-.065 13.175 13.175 0 0 0 7.14 2.093c8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602a9.47 9.47 0 0 0 2.323-2.41l.002-.003z"/>
-        </svg>
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/timeline.html">ホーム</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/notifications.html">通知</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/profile.html">プロフィール</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link active" href="/analytics.html">アナリティクス</a>
-          </li>
-        </ul>
-        <button class="btn btn-outline-danger" onclick="logout()">ログアウト</button>
-      </div>
-    </div>
-  </nav>
+  <!-- サイドバー -->
+  <div class="sidebar">
+    <h3><i class="fab fa-twitter" style="color: #1DA1F2;"></i> Twitterクローン</h3>
+    <a href="index.html"><i class="fas fa-home nav-icon"></i> ホーム</a>
+    <a href="recommended.html"><i class="fas fa-fire nav-icon"></i> おすすめ</a>
+    <a href="notifications.html"><i class="fas fa-bell nav-icon"></i> 通知 <span id="unreadBadge" class="badge bg-danger" style="display: none;"></span></a>
+    <a href="analytics.html" class="active"><i class="fas fa-chart-line nav-icon"></i> アナリティクス</a>
+    <a href="profile.html"><i class="fas fa-user nav-icon"></i> プロフィール</a>
+    <a href="admin.html"><i class="fas fa-shield-alt nav-icon"></i> 管理者</a>
+    <button class="btn btn-outline-danger w-100" onclick="logout()">ログアウト</button>
+  </div>
 
-  <div class="container mt-4">
-    <h1>アナリティクス</h1>
-    <div id="analyticsOverview" class="card mb-4">
-      <div class="card-body">
-        <h5>概要</h5>
-        <p>インプレッション: <span id="totalImpressions"></span></p>
-        <p>いいね: <span id="totalLikes"></span></p>
-        <p>リツイート: <span id="totalRetweets"></span></p>
+  <!-- メインコンテンツ -->
+  <div class="main-content">
+    <h3>アナリティクス</h3>
+    <div class="stat-box">
+      <h5>概要</h5>
+      <p>総インプレッション: <span id="totalImpressions">0</span></p>
+      <p>総いいね: <span id="totalLikes">0</span></p>
+      <p>総リツイート: <span id="totalRetweets">0</span></p>
+    </div>
+    <div class="stat-box">
+      <h5>投稿ごとの統計</h5>
+      <div id="postStats"></div>
+    </div>
+    <div id="adminStats" style="display: none;">
+      <div class="stat-box">
+        <h5>ユーザー統計</h5>
+        <div id="userStats"></div>
+      </div>
+      <div class="stat-box">
+        <h5>トップハッシュタグ</h5>
+        <div id="topHashtags"></div>
       </div>
     </div>
-    <div id="postStats" class="mb-4"></div>
-    <div id="adminStats" class="mb-4"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/scripts.js"></script>
+  <script src="scripts.js"></script>
 </body>
 </html>
